@@ -159,14 +159,14 @@
 
         // --- DO NOT EDIT BELOW THIS LINE ---
         const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : liveFirebaseConfig;
-        const finalGeminiApiKey = geminiApiKey; // In a real app, you might also have a __gemini_api_key for dev environments
+        const finalGeminiApiKey = typeof __gemini_api_key !== 'undefined' ? __gemini_api_key : geminiApiKey;
         const appId = typeof __app_id !== 'undefined' ? __app_id : 'recipe-tracker-app-default';
 
         // Check for missing configuration on live sites
-        if ((!firebaseConfig || Object.keys(firebaseConfig).length < 2) || !finalGeminiApiKey) {
-            const isLocalOrCanvas = typeof __app_id !== 'undefined' || window.location.hostname === 'localhost';
+        if ((!firebaseConfig || !firebaseConfig.apiKey) || !finalGeminiApiKey) {
+            const isLocalOrCanvas = typeof __app_id !== 'undefined' || window.location.hostname === 'localhost' || window.location.protocol === 'file:';
             if (!isLocalOrCanvas) {
-                 document.body.innerHTML = '<div class="p-8 text-center text-red-500"><h1>Configuration Error</h1><p>Firebase or Gemini API key is missing. Please add your configuration to the index.html file.</p></div>';
+                 document.body.innerHTML = `<div class="p-8 text-center text-red-500"><h1>Configuration Error</h1><p>Firebase or Gemini API key is missing. Please add your configuration to the index.html file.</p></div>`;
                  throw new Error("Configuration missing. Halting execution.");
             }
         }
@@ -635,4 +635,4 @@
         });
     </script>
 </body>
-</ht
+</html>
