@@ -1,0 +1,605 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Recipe & Ingredient Tracker</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Inter', sans-serif; }
+        .modal { transition: opacity 0.25s ease; }
+        .modal-content { transition: transform 0.25s ease; }
+        .toast {
+            animation: slide-in-out 5s forwards;
+        }
+        @keyframes slide-in-out {
+            0% { transform: translateY(100%); opacity: 0; }
+            10% { transform: translateY(0); opacity: 1; }
+            90% { transform: translateY(0); opacity: 1; }
+            100% { transform: translateY(100%); opacity: 0; }
+        }
+    </style>
+</head>
+<body class="bg-gray-100 text-gray-800">
+
+    <div id="app" class="container mx-auto p-4 sm:p-6 lg:p-8">
+        
+        <header class="mb-8 text-center">
+            <h1 class="text-4xl font-bold text-gray-900">Recipe & Ingredient Tracker</h1>
+            <p class="text-gray-600 mt-2">Your personal digital cookbook. Never lose a recipe again.</p>
+            <p class="text-xs text-gray-500 mt-2">User ID: <span id="userId" class="font-mono">loading...</span></p>
+        </header>
+
+        <main>
+            <!-- Controls: Search, Add, Scan, and Shopping Helper -->
+            <div class="flex flex-col sm:flex-row justify-between items-center mb-6 gap-4">
+                <div class="relative w-full sm:w-auto flex-grow">
+                    <input type="text" id="searchInput" placeholder="Search by ingredient..." class="w-full p-3 pl-10 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    <svg class="w-5 h-5 text-gray-400 absolute top-1/2 left-3 -translate-y-1/2" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="m21 21-5.197-5.197m0 0A7.5 7.5 0 1 0 5.196 5.196a7.5 7.5 0 0 0 10.607 10.607Z" />
+                    </svg>
+                </div>
+                <div class="flex gap-2 w-full sm:w-auto">
+                    <button id="shoppingHelperBtn" class="w-full sm:w-auto bg-purple-600 text-white font-semibold py-3 px-6 rounded-lg shadow-md hover:bg-purple-700 transition duration-300 flex items-center justify-center gap-2">
+                        <svg class="w-5 h-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M8.25 6.75h12M8.25 12h12m-12 5.25h12M3.75 6.75h.007v.008H3.75V6.75Zm.375 0a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0ZM3.75 12h.007v.008H3.75V12Zm.375 0a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Zm-.375 5.25h.007v.008H3.75v-.008Zm.375 0a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Z" /></svg>
+                        Shopping Helper
+                    </button>
+                    <button id="scanRecipeBtn" class="w-full sm:w-auto bg-green-600 text-white font-semibold py-3 px-6 rounded-lg shadow-md hover:bg-green-700 transition duration-300 flex items-center justify-center gap-2">
+                        <svg class="w-5 h-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M6.827 6.175A2.31 2.31 0 0 1 5.186 7.23c-.38.054-.757.112-1.134.175C2.999 7.58 2.25 8.507 2.25 9.574V18a2.25 2.25 0 0 0 2.25 2.25h15A2.25 2.25 0 0 0 21.75 18V9.574c0-1.067-.75-1.994-1.802-2.169a47.865 47.865 0 0 0-1.134-.175 2.31 2.31 0 0 1-1.64-1.055l-.822-1.316a2.192 2.192 0 0 0-1.736-1.039 48.776 48.776 0 0 0-5.232 0 2.192 2.192 0 0 0-1.736 1.039l-.821 1.316Z" /><path stroke-linecap="round" stroke-linejoin="round" d="M16.5 12.75a4.5 4.5 0 1 1-9 0 4.5 4.5 0 0 1 9 0ZM18.75 10.5h.008v.008h-.008V10.5Z" /></svg>
+                        Scan
+                    </button>
+                    <input type="file" id="imageUpload" class="hidden" accept="image/*">
+                    <button id="addRecipeBtn" class="w-full sm:w-auto bg-blue-600 text-white font-semibold py-3 px-6 rounded-lg shadow-md hover:bg-blue-700 transition duration-300 flex items-center justify-center gap-2">
+                        <svg class="w-5 h-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" /></svg>
+                        Add
+                    </button>
+                </div>
+            </div>
+
+            <!-- Main Content: Recipe List and Details -->
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                <div id="recipeListContainer" class="lg:col-span-1 bg-white p-6 rounded-xl shadow-lg">
+                    <h2 class="text-2xl font-bold mb-4">My Recipes</h2>
+                    <div id="recipeList" class="space-y-3">
+                         <p class="text-gray-500">No recipes yet. Add one to get started!</p>
+                    </div>
+                </div>
+                <div id="recipeDetailsContainer" class="lg:col-span-2 bg-white p-6 rounded-xl shadow-lg">
+                    <div id="recipeDetails" class="prose max-w-none">
+                         <h2 class="text-2xl font-bold text-gray-500">Select a recipe to view details</h2>
+                         <p class="text-gray-400">Your selected recipe's ingredients and instructions will appear here.</p>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Add/Edit Recipe Modal -->
+    <div id="recipeModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 hidden">
+        <div class="modal-content bg-white rounded-lg shadow-2xl w-full max-w-lg p-8 transform scale-95 relative">
+            <div id="modalLoadingOverlay" class="absolute inset-0 bg-white bg-opacity-80 flex-col items-center justify-center rounded-lg hidden z-10">
+                <svg class="animate-spin h-10 w-10 text-blue-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
+                <p id="loadingStatus" class="mt-4 text-lg font-semibold text-gray-700">Scanning Recipe...</p>
+            </div>
+            <h2 id="modalTitle" class="text-2xl font-bold mb-6">Add a New Recipe</h2>
+            <form id="recipeForm">
+                <input type="hidden" id="recipeId">
+                <div class="mb-4">
+                    <label for="recipeName" class="block text-gray-700 font-semibold mb-2">Recipe Name</label>
+                    <input type="text" id="recipeName" class="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" required>
+                </div>
+                <div class="mb-4">
+                    <label for="recipeIngredients" class="block text-gray-700 font-semibold mb-2">Ingredients (one per line)</label>
+                    <textarea id="recipeIngredients" rows="5" class="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" required></textarea>
+                </div>
+                <div class="mb-6">
+                    <label for="recipeInstructions" class="block text-gray-700 font-semibold mb-2">Instructions</label>
+                    <textarea id="recipeInstructions" rows="6" class="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" required></textarea>
+                </div>
+                <div class="flex justify-end gap-4">
+                    <button type="button" id="cancelBtn" class="bg-gray-300 text-gray-800 font-semibold py-2 px-4 rounded-lg hover:bg-gray-400 transition">Cancel</button>
+                    <button type="submit" class="bg-blue-600 text-white font-semibold py-2 px-4 rounded-lg hover:bg-blue-700 transition">Save Recipe</button>
+                </div>
+            </form>
+        </div>
+    </div>
+    
+    <!-- Shopping Helper Modal -->
+    <div id="shoppingHelperModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 hidden">
+        <div class="modal-content bg-white rounded-lg shadow-2xl w-full max-w-2xl p-8 transform scale-95">
+            <div class="flex justify-between items-start">
+                <h2 class="text-2xl font-bold mb-6">Shopping Helper</h2>
+                <button id="closeShoppingHelperBtn" class="p-1 text-2xl leading-none">&times;</button>
+            </div>
+            <div id="shoppingListContainer" class="space-y-4 max-h-[60vh] overflow-y-auto">
+                <!-- Shopping list will be generated here -->
+            </div>
+        </div>
+    </div>
+
+    <!-- Confirmation Modal -->
+    <div id="confirmModal" class="modal fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 hidden">
+        <div class="modal-content bg-white rounded-lg shadow-2xl w-full max-w-sm p-6 transform scale-95">
+            <h2 class="text-xl font-bold mb-4">Confirm Deletion</h2>
+            <p id="confirmMessage" class="text-gray-600 mb-6">Are you sure you want to delete this recipe?</p>
+            <div class="flex justify-end gap-4">
+                <button type="button" id="confirmCancelBtn" class="bg-gray-300 text-gray-800 font-semibold py-2 px-4 rounded-lg hover:bg-gray-400 transition">Cancel</button>
+                <button type="button" id="confirmOkBtn" class="bg-red-600 text-white font-semibold py-2 px-4 rounded-lg hover:bg-red-700 transition">Delete</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Toast Notification -->
+    <div id="toast" class="fixed bottom-5 right-5 bg-gray-900 text-white py-3 px-6 rounded-lg shadow-xl hidden toast">
+        <p id="toastMessage"></p>
+    </div>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, doc, collection, addDoc, setDoc, deleteDoc, onSnapshot, query } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+        // --- CONFIG AND INITIALIZATION ---
+        const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : { apiKey: "DEMO", authDomain: "DEMO", projectId: "DEMO" };
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'recipe-tracker-app-default';
+        const app = initializeApp(firebaseConfig);
+        const db = getFirestore(app);
+        const auth = getAuth(app);
+
+        let currentUserId = null;
+        let unsubscribeRecipes = null;
+        let recipesCache = [];
+        let confirmCallback = null;
+
+        // --- DOM ELEMENTS ---
+        const ui = {
+            recipeList: document.getElementById('recipeList'),
+            recipeDetails: document.getElementById('recipeDetails'),
+            addRecipeBtn: document.getElementById('addRecipeBtn'),
+            scanRecipeBtn: document.getElementById('scanRecipeBtn'),
+            shoppingHelperBtn: document.getElementById('shoppingHelperBtn'),
+            imageUpload: document.getElementById('imageUpload'),
+            searchInput: document.getElementById('searchInput'),
+            userId: document.getElementById('userId'),
+            recipeModal: {
+                el: document.getElementById('recipeModal'),
+                content: document.querySelector('#recipeModal .modal-content'),
+                title: document.getElementById('modalTitle'),
+                form: document.getElementById('recipeForm'),
+                id: document.getElementById('recipeId'),
+                name: document.getElementById('recipeName'),
+                ingredients: document.getElementById('recipeIngredients'),
+                instructions: document.getElementById('recipeInstructions'),
+                cancelBtn: document.getElementById('cancelBtn'),
+                loadingOverlay: document.getElementById('modalLoadingOverlay'),
+                loadingStatus: document.getElementById('loadingStatus')
+            },
+            shoppingHelperModal: {
+                el: document.getElementById('shoppingHelperModal'),
+                content: document.querySelector('#shoppingHelperModal .modal-content'),
+                container: document.getElementById('shoppingListContainer'),
+                closeBtn: document.getElementById('closeShoppingHelperBtn')
+            },
+            confirmModal: {
+                el: document.getElementById('confirmModal'),
+                content: document.querySelector('#confirmModal .modal-content'),
+                message: document.getElementById('confirmMessage'),
+                okBtn: document.getElementById('confirmOkBtn'),
+                cancelBtn: document.getElementById('confirmCancelBtn')
+            }
+        };
+
+        // --- AUTHENTICATION ---
+        onAuthStateChanged(auth, async (user) => {
+            if (user) {
+                currentUserId = user.uid;
+                ui.userId.textContent = currentUserId;
+                await fetchAndRenderRecipes();
+            } else {
+                console.log("No user signed in. Attempting authentication...");
+                let signedIn = false;
+                if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+                    try {
+                        await signInWithCustomToken(auth, __initial_auth_token);
+                        signedIn = true;
+                    } catch (error) {
+                        console.warn("Custom token sign-in failed, will attempt fallback.", error);
+                    }
+                }
+                if (!signedIn) {
+                    try {
+                        await signInAnonymously(auth);
+                    } catch (error) {
+                        console.error("Fatal: Anonymous sign-in also failed:", error);
+                        showToast("Error: Could not authenticate user.", "error");
+                    }
+                }
+            }
+        });
+
+        // --- RECIPE DATA LOGIC (FIRESTORE) ---
+        let coreIngredientsCache = null;
+        async function fetchAndRenderRecipes() {
+            if (!currentUserId) return;
+            if (unsubscribeRecipes) unsubscribeRecipes();
+            const recipesCol = collection(db, 'artifacts', appId, 'users', currentUserId, 'recipes');
+            unsubscribeRecipes = onSnapshot(query(recipesCol), (snapshot) => {
+                recipesCache = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                coreIngredientsCache = null; // Invalidate cache on update
+                renderRecipeList(recipesCache);
+                if (recipesCache.length === 0) renderRecipeDetails(null);
+            }, error => {
+                console.error("Error fetching recipes:", error);
+                showToast("Failed to load recipes.", "error");
+            });
+        }
+
+        async function handleFormSubmit(e) {
+            e.preventDefault();
+            const ingredients = ui.recipeModal.ingredients.value.split('\n').map(i => i.trim()).filter(Boolean);
+            if(ingredients.length === 0) {
+                 return showToast("Please add ingredients.", "error");
+            }
+
+            setModalLoading(true, "Normalizing ingredients...");
+            let normalizedIngredients = [];
+            try {
+                 const result = await normalizeIngredients(ingredients);
+                 normalizedIngredients = result.normalizedIngredients;
+                 coreIngredientsCache = null; // Invalidate cache
+            } catch (error) {
+                console.error("Normalization failed:", error);
+                showToast("Could not normalize ingredients, saving as is.", "warning");
+                normalizedIngredients = ingredients.map(i => ({raw: i, core: i.toLowerCase().split(',')[0]})); // Basic fallback
+            }
+            setModalLoading(false);
+
+            const recipeData = {
+                name: ui.recipeModal.name.value.trim(),
+                ingredients: ingredients, // The now-cleaner list from the textarea
+                normalizedIngredients: normalizedIngredients, // save normalized version for searching
+                instructions: ui.recipeModal.instructions.value.trim(),
+                userId: currentUserId
+            };
+
+            if (!recipeData.name || recipeData.ingredients.length === 0 || !recipeData.instructions) {
+                return showToast("Please fill out all fields.", "error");
+            }
+            
+            const recipeId = ui.recipeModal.id.value;
+            try {
+                if (recipeId) {
+                    await setDoc(doc(db, 'artifacts', appId, 'users', currentUserId, 'recipes', recipeId), recipeData);
+                    showToast("Recipe updated successfully!");
+                } else {
+                    await addDoc(collection(db, 'artifacts', appId, 'users', currentUserId, 'recipes'), recipeData);
+                    showToast("Recipe added successfully!");
+                }
+                closeRecipeModal();
+            } catch (error) {
+                console.error("Error saving recipe:", error);
+                showToast("Failed to save recipe.", "error");
+            }
+        }
+
+        function deleteRecipe(id) {
+            openConfirmModal('Are you sure you want to delete this recipe?', async () => {
+                try {
+                    await deleteDoc(doc(db, 'artifacts', appId, 'users', currentUserId, 'recipes', id));
+                    renderRecipeDetails(null);
+                    showToast("Recipe deleted.");
+                } catch (error) {
+                    console.error("Error deleting recipe:", error);
+                    showToast("Failed to delete recipe.", "error");
+                }
+            });
+        }
+        
+        // --- RECIPE SCANNING & NORMALIZATION (GEMINI API) ---
+        async function callGemini(prompt, inlineData = null, responseSchema = null) {
+            const apiKey = ""; 
+            const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`;
+            
+            const parts = [{ text: prompt }];
+            if (inlineData) {
+                parts.push({ inlineData });
+            }
+
+            const payload = {
+                contents: [{ role: "user", parts: parts }],
+            };
+
+            if (responseSchema) {
+                payload.generationConfig = {
+                    responseMimeType: "application/json",
+                    responseSchema: responseSchema
+                };
+            }
+
+            const response = await fetch(apiUrl, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+
+            if (!response.ok) {
+                throw new Error(`API request failed with status ${response.status}`);
+            }
+            
+            const result = await response.json();
+            const responseText = result.candidates?.[0]?.content?.parts?.[0]?.text;
+
+            if (!responseText) {
+                 throw new Error("Invalid response structure from API.");
+            }
+
+            return responseSchema ? JSON.parse(responseText) : responseText;
+        }
+
+        async function getRecipeFromImage(base64ImageData, mimeType) {
+            const prompt = "Analyze this image of a recipe. Extract the recipe name, instructions, and a list of ingredients. For the list of ingredients, combine preparation notes (like 'seeded and quartered' or 'toasted and cut into fingers') with the main ingredient they describe. Each item in the returned 'ingredients' array should be a complete string for a single ingredient line. For example, if the image shows '1 large red capsicum (pepper)' on one line and 'seeded and quartered' on the next, combine them into one string: '1 large red capsicum (pepper), seeded and quartered'. Return the data as a JSON object with 'name', 'ingredients' (an array of strings), and 'instructions' (a single string) fields.";
+            const schema = {
+                type: "OBJECT",
+                properties: {
+                    name: { type: "STRING" },
+                    ingredients: { type: "ARRAY", items: { type: "STRING" } },
+                    instructions: { type: "STRING" }
+                },
+                required: ["name", "ingredients", "instructions"]
+            };
+            return await callGemini(prompt, { mimeType: mimeType, data: base64ImageData }, schema);
+        }
+
+        async function normalizeIngredients(ingredients) {
+            const prompt = `For each ingredient in the list, identify the 'core' food item and return it as a normalized string. For example, for '1 large red capsicum (pepper), seeded and quartered', the core item is 'red bell pepper'. For '2 tbsp chopped fresh basil', the core is 'fresh basil'. Return a JSON object containing a list of objects, where each object has the original 'raw' ingredient and the processed 'core' ingredient. The list of ingredients is: ${JSON.stringify(ingredients)}`;
+            const schema = {
+                type: "OBJECT",
+                properties: {
+                    normalizedIngredients: {
+                        type: "ARRAY",
+                        items: {
+                            type: "OBJECT",
+                            properties: {
+                                raw: { type: "STRING" },
+                                core: { type: "STRING" }
+                            },
+                            required: ["raw", "core"]
+                        }
+                    }
+                },
+                required: ["normalizedIngredients"]
+            };
+            return await callGemini(prompt, null, schema);
+        }
+
+        // --- UI RENDERING & INTERACTIONS ---
+        function renderRecipeList(recipes) {
+            ui.recipeList.innerHTML = '';
+            if (recipes.length === 0) {
+                ui.recipeList.innerHTML = '<p class="text-gray-500">No recipes found. Add one to get started!</p>';
+                return;
+            }
+            recipes.forEach(recipe => {
+                const item = document.createElement('div');
+                item.className = 'p-4 border rounded-lg cursor-pointer hover:bg-gray-100 transition group';
+                item.dataset.id = recipe.id;
+                item.innerHTML = `<div class="flex justify-between items-center"><h3 class="font-semibold text-lg text-gray-800 group-hover:text-blue-600">${escapeHTML(recipe.name)}</h3><div class="flex items-center space-x-2 opacity-0 group-hover:opacity-100 transition-opacity"><button class="edit-btn p-1 text-gray-500 hover:text-blue-600" data-id="${recipe.id}"><svg class="w-5 h-5 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.5L14.732 3.732z"></path></svg></button><button class="delete-btn p-1 text-gray-500 hover:text-red-600" data-id="${recipe.id}"><svg class="w-5 h-5 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg></button></div></div>`;
+                ui.recipeList.appendChild(item);
+            });
+        }
+        
+        function renderRecipeDetails(recipe) {
+            if (!recipe) {
+                ui.recipeDetails.innerHTML = `<h2 class="text-2xl font-bold text-gray-500">Select a recipe</h2><p class="text-gray-400">Recipe details will appear here.</p>`;
+                return;
+            }
+            const ingredientsList = recipe.ingredients?.map(ing => `<li>${escapeHTML(ing)}</li>`).join('') || '<li>No ingredients listed.</li>';
+            const instructionsHTML = recipe.instructions ? `<p>${escapeHTML(recipe.instructions).replace(/\n/g, '<br>')}</p>` : '<p>No instructions provided.</p>';
+            ui.recipeDetails.innerHTML = `<h2 class="text-3xl font-bold mb-4">${escapeHTML(recipe.name)}</h2><h3 class="text-xl font-semibold mt-6 mb-2">Ingredients</h3><ul class="list-disc list-inside space-y-1">${ingredientsList}</ul><h3 class="text-xl font-semibold mt-6 mb-2">Instructions</h3><div class="prose-p:my-2">${instructionsHTML}</div>`;
+        }
+        
+        function handleSearch() {
+            const term = ui.searchInput.value.toLowerCase().trim();
+            if (!term) {
+                 renderRecipeList(recipesCache);
+                 return;
+            }
+            const filtered = recipesCache.filter(r => 
+                (r.ingredients && r.ingredients.some(i => i.toLowerCase().includes(term))) ||
+                (r.normalizedIngredients && r.normalizedIngredients.some(ni => ni.core.toLowerCase().includes(term)))
+            );
+            renderRecipeList(filtered);
+        }
+
+        // --- MODAL CONTROLS ---
+        function openRecipeModal(recipe = null) {
+            ui.recipeModal.form.reset();
+            if (recipe) {
+                ui.recipeModal.title.textContent = 'Edit Recipe';
+                ui.recipeModal.id.value = recipe.id;
+                ui.recipeModal.name.value = recipe.name;
+                ui.recipeModal.ingredients.value = recipe.ingredients.join('\n');
+                ui.recipeModal.instructions.value = recipe.instructions;
+            } else {
+                ui.recipeModal.title.textContent = 'Add New Recipe';
+                ui.recipeModal.id.value = '';
+            }
+            ui.recipeModal.el.classList.remove('hidden');
+            setTimeout(() => {
+                ui.recipeModal.el.classList.add('opacity-100');
+                ui.recipeModal.content.classList.replace('scale-95', 'scale-100');
+            }, 10);
+        }
+
+        function closeRecipeModal() {
+            ui.recipeModal.content.classList.replace('scale-100', 'scale-95');
+            ui.recipeModal.el.classList.remove('opacity-100');
+            setTimeout(() => ui.recipeModal.el.classList.add('hidden'), 250);
+        }
+        
+        function setModalLoading(isLoading, statusText = "Scanning Recipe...") {
+            ui.recipeModal.loadingStatus.textContent = statusText;
+            ui.recipeModal.loadingOverlay.classList.toggle('hidden', !isLoading);
+            ui.recipeModal.loadingOverlay.classList.toggle('flex', isLoading);
+        }
+
+        function openConfirmModal(message, callback) {
+            ui.confirmModal.message.textContent = message;
+            confirmCallback = callback;
+            ui.confirmModal.el.classList.remove('hidden');
+            setTimeout(() => {
+                ui.confirmModal.el.classList.add('opacity-100');
+                ui.confirmModal.content.classList.replace('scale-95', 'scale-100');
+            }, 10);
+        }
+
+        function closeConfirmModal() {
+            ui.confirmModal.content.classList.replace('scale-100', 'scale-95');
+            ui.confirmModal.el.classList.remove('opacity-100');
+            setTimeout(() => ui.confirmModal.el.classList.add('hidden'), 250);
+        }
+
+        function openShoppingHelperModal() {
+            ui.shoppingHelperModal.el.classList.remove('hidden');
+            setTimeout(() => {
+                ui.shoppingHelperModal.el.classList.add('opacity-100');
+                ui.shoppingHelperModal.content.classList.replace('scale-95', 'scale-100');
+            }, 10);
+        }
+
+        function closeShoppingHelperModal() {
+            ui.shoppingHelperModal.content.classList.replace('scale-100', 'scale-95');
+            ui.shoppingHelperModal.el.classList.remove('opacity-100');
+            setTimeout(() => ui.shoppingHelperModal.el.classList.add('hidden'), 250);
+        }
+        
+        // --- SHOPPING HELPER LOGIC ---
+        function generateShoppingList() {
+            const ingredientMap = new Map();
+            recipesCache.forEach(recipe => {
+                if(recipe.normalizedIngredients && Array.isArray(recipe.normalizedIngredients)){
+                    recipe.normalizedIngredients.forEach(ing => {
+                        const core = ing.core.toLowerCase();
+                        if (!ingredientMap.has(core)) {
+                            ingredientMap.set(core, { count: 0, recipes: new Set() });
+                        }
+                        const entry = ingredientMap.get(core);
+                        entry.count++;
+                        entry.recipes.add(recipe.name);
+                    });
+                }
+            });
+
+            const sortedIngredients = Array.from(ingredientMap.entries()).sort((a, b) => b[1].count - a[1].count);
+            
+            ui.shoppingHelperModal.container.innerHTML = '';
+            if(sortedIngredients.length === 0){
+                ui.shoppingHelperModal.container.innerHTML = '<p class="text-gray-500">No recipes found or ingredients are not yet normalized. Please add or scan recipes first.</p>';
+                return;
+            }
+
+            sortedIngredients.forEach(([core, data]) => {
+                const itemEl = document.createElement('div');
+                itemEl.className = 'p-4 border rounded-lg bg-gray-50';
+                itemEl.innerHTML = `
+                    <h3 class="font-bold text-lg capitalize">${escapeHTML(core)}</h3>
+                    <p class="text-sm text-gray-600">Used in <span class="font-semibold text-purple-700">${data.count}</span> recipe(s):</p>
+                    <ul class="text-xs text-gray-500 list-disc list-inside mt-1">
+                        ${[...data.recipes].map(name => `<li>${escapeHTML(name)}</li>`).join('')}
+                    </ul>
+                `;
+                ui.shoppingHelperModal.container.appendChild(itemEl);
+            });
+        }
+
+
+        // --- HELPERS ---
+        function showToast(message, type = 'success') {
+            const toast = document.getElementById('toast'), msg = document.getElementById('toastMessage');
+            msg.textContent = message;
+            toast.className = 'fixed bottom-5 right-5 text-white py-3 px-6 rounded-lg shadow-xl toast';
+            toast.classList.add(type === 'error' ? 'bg-red-600' : 'bg-gray-900');
+            toast.classList.remove('hidden');
+            setTimeout(() => toast.classList.add('hidden'), 4900);
+        }
+        
+        function escapeHTML(str) {
+            const p = document.createElement('p');
+            p.textContent = str;
+            return p.innerHTML;
+        }
+
+        // --- EVENT LISTENERS ---
+        ui.addRecipeBtn.addEventListener('click', () => openRecipeModal());
+        ui.recipeModal.cancelBtn.addEventListener('click', closeRecipeModal);
+        ui.recipeModal.el.addEventListener('click', e => e.target === ui.recipeModal.el && closeRecipeModal());
+        ui.recipeModal.form.addEventListener('submit', handleFormSubmit);
+        
+        ui.confirmModal.cancelBtn.addEventListener('click', closeConfirmModal);
+        ui.confirmModal.el.addEventListener('click', e => e.target === ui.confirmModal.el && closeConfirmModal());
+        ui.confirmModal.okBtn.addEventListener('click', () => {
+            if (confirmCallback) confirmCallback();
+            closeConfirmModal();
+        });
+
+        ui.shoppingHelperBtn.addEventListener('click', () => {
+             generateShoppingList();
+             openShoppingHelperModal();
+        });
+        ui.shoppingHelperModal.closeBtn.addEventListener('click', closeShoppingHelperModal);
+        ui.shoppingHelperModal.el.addEventListener('click', e => e.target === ui.shoppingHelperModal.el && closeShoppingHelperModal());
+
+
+        ui.scanRecipeBtn.addEventListener('click', () => ui.imageUpload.click());
+        ui.imageUpload.addEventListener('change', async (e) => {
+            const file = e.target.files[0];
+            e.target.value = ''; // Reset file input
+            if (!file) return;
+
+            openRecipeModal();
+            setModalLoading(true, "Scanning recipe...");
+            
+            const reader = new FileReader();
+            reader.onloadend = async () => {
+                const base64ImageData = reader.result.split(',')[1];
+                try {
+                    // Step 1: Extract and clean data from image
+                    const rawRecipeData = await getRecipeFromImage(base64ImageData, file.type);
+                    ui.recipeModal.name.value = rawRecipeData.name || '';
+                    ui.recipeModal.instructions.value = rawRecipeData.instructions || '';
+                    ui.recipeModal.ingredients.value = (rawRecipeData.ingredients || []).join('\n'); // Show cleaned list in form
+                    showToast("Recipe scanned successfully! Please review.", "success");
+                } catch (error) {
+                    console.error("Failed to get recipe from image:", error);
+                    showToast("Could not read recipe from image.", "error");
+                    closeRecipeModal();
+                } finally {
+                    setModalLoading(false);
+                }
+            };
+            reader.readAsDataURL(file);
+        });
+
+        ui.searchInput.addEventListener('input', handleSearch);
+
+        ui.recipeList.addEventListener('click', (e) => {
+            const recipeItem = e.target.closest('[data-id]');
+            if (!recipeItem) return;
+            const recipeId = recipeItem.dataset.id;
+            const recipe = recipesCache.find(r => r.id === recipeId);
+            if (!recipe) return;
+
+            if (e.target.closest('.edit-btn')) {
+                openRecipeModal(recipe);
+            } else if (e.target.closest('.delete-btn')) {
+                deleteRecipe(recipeId);
+            } else {
+                document.querySelectorAll('#recipeList [data-id]').forEach(el => el.classList.remove('bg-blue-100'));
+                recipeItem.classList.add('bg-blue-100');
+                renderRecipeDetails(recipe);
+            }
+        });
+    </script>
+</body>
+</html>
