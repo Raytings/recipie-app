@@ -137,15 +137,13 @@
 
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-        import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getAuth, signInAnonymously } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
         import { getFirestore, doc, collection, addDoc, setDoc, deleteDoc, onSnapshot, query } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
         // --- IMPORTANT: PASTE YOUR KEYS HERE ---
-        // When hosting this on your own website, you MUST replace the placeholders below.
 
-        // 1. Get your Firebase project configuration object from your Firebase project settings
-        // and paste it here.
-        const liveFirebaseConfig = {
+        // 1. Paste your Firebase project configuration object here.
+        const firebaseConfig = {
             apiKey: "AIzaSyCm4DF9s-TO4IXkzfjyEkyjqn1qcKcjiFo",
             authDomain: "recipe-app-38701.firebaseapp.com",
             projectId: "recipe-app-38701",
@@ -154,26 +152,21 @@
             appId: "1:653745673289:web:4abfe6261668501e60db98"
         };
 
-        // 2. Get your Gemini API Key from Google AI Studio and paste it here.
+        // 2. Paste your Gemini API Key here.
         const geminiApiKey = "AIzaSyCWNKUWYzKCp3JV084ovB7NkEc6Zig0x2s";
+        
+        // --- End of Configuration ---
 
-        // --- DO NOT EDIT BELOW THIS LINE ---
-        const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : liveFirebaseConfig;
-        const finalGeminiApiKey = typeof __gemini_api_key !== 'undefined' ? __gemini_api_key : geminiApiKey;
-        const appId = typeof __app_id !== 'undefined' ? __app_id : 'recipe-tracker-app-default';
-
-        // Check for missing configuration on live sites
-        if ((!firebaseConfig || !firebaseConfig.apiKey) || !finalGeminiApiKey) {
-            const isLocalOrCanvas = typeof __app_id !== 'undefined' || window.location.hostname === 'localhost' || window.location.protocol === 'file:';
-            if (!isLocalOrCanvas) {
-                 document.body.innerHTML = `<div class="p-8 text-center text-red-500"><h1>Configuration Error</h1><p>Firebase or Gemini API key is missing. Please add your configuration to the index.html file.</p></div>`;
-                 throw new Error("Configuration missing. Halting execution.");
-            }
+        // Check if the keys have been filled out.
+        if (!firebaseConfig.apiKey || !geminiApiKey) {
+             document.body.innerHTML = `<div class="p-8 text-center text-red-500"><h1>Configuration Error</h1><p>Firebase or Gemini API key is missing. Please add your configuration to the index.html file.</p></div>`;
+             throw new Error("Configuration missing. Halting execution.");
         }
-
+        
         const app = initializeApp(firebaseConfig);
         const db = getFirestore(app);
         const auth = getAuth(app);
+        const appId = firebaseConfig.projectId; // Use project ID as a unique identifier
 
         let currentUserId = null;
         let unsubscribeRecipes = null;
@@ -219,42 +212,24 @@
         };
 
         // --- AUTHENTICATION ---
-        onAuthStateChanged(auth, async (user) => {
-            if (user) {
-                currentUserId = user.uid;
+        signInAnonymously(auth)
+            .then((userCredential) => {
+                currentUserId = userCredential.user.uid;
                 ui.userId.textContent = currentUserId;
-                await fetchAndRenderRecipes();
-            } else {
-                console.log("No user signed in. Attempting authentication...");
-                let signedIn = false;
-                if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
-                    try {
-                        await signInWithCustomToken(auth, __initial_auth_token);
-                        signedIn = true;
-                    } catch (error) {
-                        console.warn("Custom token sign-in failed, will attempt fallback.", error);
-                    }
-                }
-                if (!signedIn) {
-                    try {
-                        await signInAnonymously(auth);
-                    } catch (error) {
-                        console.error("Fatal: Anonymous sign-in also failed:", error);
-                        showToast("Error: Could not authenticate user.", "error");
-                    }
-                }
-            }
-        });
+                fetchAndRenderRecipes();
+            })
+            .catch((error) => {
+                console.error("Fatal: Anonymous sign-in failed:", error);
+                showToast("Error: Could not authenticate user.", "error");
+            });
 
         // --- RECIPE DATA LOGIC (FIRESTORE) ---
-        let coreIngredientsCache = null;
         async function fetchAndRenderRecipes() {
             if (!currentUserId) return;
             if (unsubscribeRecipes) unsubscribeRecipes();
             const recipesCol = collection(db, 'artifacts', appId, 'users', currentUserId, 'recipes');
             unsubscribeRecipes = onSnapshot(query(recipesCol), (snapshot) => {
                 recipesCache = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-                coreIngredientsCache = null; // Invalidate cache on update
                 renderRecipeList(recipesCache);
                 if (recipesCache.length === 0) renderRecipeDetails(null);
             }, error => {
@@ -279,7 +254,6 @@
             try {
                  const result = await normalizeIngredients(ingredients);
                  normalizedIngredients = result.normalizedIngredients;
-                 coreIngredientsCache = null; // Invalidate cache
             } catch (error) {
                 console.error("Normalization failed:", error);
                 showToast("Could not normalize ingredients, saving as is.", "warning");
@@ -289,8 +263,8 @@
 
             const recipeData = {
                 name: ui.recipeModal.name.value.trim(),
-                ingredients: ingredients, // The now-cleaner list from the textarea
-                normalizedIngredients: normalizedIngredients, // save normalized version for searching
+                ingredients: ingredients,
+                normalizedIngredients: normalizedIngredients,
                 instructions: ui.recipeModal.instructions.value.trim(),
                 userId: currentUserId
             };
@@ -330,7 +304,7 @@
         
         // --- RECIPE SCANNING & NORMALIZATION (GEMINI API) ---
         async function callGemini(prompt, inlineData = null, responseSchema = null) {
-            const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${finalGeminiApiKey}`;
+            const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${geminiApiKey}`;
             
             const parts = [{ text: prompt }];
             if (inlineData) {
