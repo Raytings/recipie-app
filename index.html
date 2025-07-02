@@ -19,6 +19,7 @@
             90% { transform: translateY(0); opacity: 1; }
             100% { transform: translateY(100%); opacity: 0; }
         }
+        /* Initially hide the main app and show the auth screen */
         #appContainer { display: none; }
         #authContainer { display: flex; }
     </style>
@@ -166,6 +167,17 @@
             <div class="flex justify-end gap-4">
                 <button type="button" id="confirmCancelBtn" class="bg-gray-300 text-gray-800 font-semibold py-2 px-4 rounded-lg hover:bg-gray-400 transition">Cancel</button>
                 <button type="button" id="confirmOkBtn" class="bg-red-600 text-white font-semibold py-2 px-4 rounded-lg hover:bg-red-700 transition">Delete</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Progress Overlay -->
+    <div id="progressOverlay" class="fixed inset-0 bg-black bg-opacity-60 flex-col items-center justify-center p-4 hidden z-50">
+        <div class="bg-white rounded-lg shadow-2xl w-full max-w-md p-8 text-center">
+            <h2 id="progressTitle" class="text-xl font-bold mb-4">Processing Recipes...</h2>
+            <p id="progressStatus" class="text-gray-600 mb-4">Please wait.</p>
+            <div class="w-full bg-gray-200 rounded-full h-4">
+                <div id="progressBar" class="bg-blue-600 h-4 rounded-full transition-all duration-500" style="width: 0%"></div>
             </div>
         </div>
     </div>
@@ -344,9 +356,16 @@
         
         async function reNormalizeAllRecipes() {
              openConfirmModal('This will re-process all your recipes to improve ingredient grouping. This may take a moment. Continue?', async () => {
-                showToast("Starting recipe refresh... Please wait.", "success");
+                const progressOverlay = document.getElementById('progressOverlay');
+                const progressBar = document.getElementById('progressBar');
+                const progressStatus = document.getElementById('progressStatus');
+                
+                progressOverlay.style.display = 'flex';
+                
                 const recipesCol = collection(db, 'users', currentUserId, 'recipes');
                 const batch = writeBatch(db);
+                const totalRecipes = recipesCache.length;
+                let processedCount = 0;
 
                 for (const recipe of recipesCache) {
                     if (recipe.ingredients && recipe.ingredients.length > 0) {
@@ -358,6 +377,10 @@
                             console.error(`Could not normalize recipe: ${recipe.name}`, error);
                         }
                     }
+                    processedCount++;
+                    const percentage = Math.round((processedCount / totalRecipes) * 100);
+                    progressBar.style.width = `${percentage}%`;
+                    progressStatus.textContent = `Processing ${processedCount} of ${totalRecipes} recipes...`;
                 }
 
                 try {
@@ -366,6 +389,8 @@
                 } catch (error) {
                     console.error("Error committing batch update:", error);
                     showToast("An error occurred during the refresh.", "error");
+                } finally {
+                    progressOverlay.style.display = 'none';
                 }
             });
         }
@@ -427,7 +452,7 @@
         }
 
         async function normalizeIngredients(ingredients) {
-            const prompt = `For each ingredient in the list, identify the base food item and return it as a normalized, singular string. It is critical to convert plural forms to singular (e.g., 'eggs' to 'egg', 'cloves' to 'clove'). Correct common misspellings (e.g., 'glove' to 'clove'). Remove non-essential descriptors like size (large, small), quantity, and simple preparation states (chopped, melted, softened), unless it creates a different product (e.g., 'buttermilk' vs 'butter'). The goal is to group similar items. For example, '1 large egg' and '2 eggs, beaten' should both have the core item 'egg'. '1 cup of melted butter' should be 'butter'. '2 red bell peppers' and '1 red bell pepper' should both become 'red bell pepper'. '3 garlic cloves' should become 'garlic clove'. Return a JSON object containing a list of objects, where each object has the original 'raw' ingredient and the processed 'core' ingredient. The list of ingredients is: ${JSON.stringify(ingredients)}`;
+            const prompt = `For each ingredient in the list, identify the base food item and return it as a normalized, singular string. It is critical to convert plural forms to singular (e.g., 'eggs' to 'egg', 'cloves' to 'clove'). Correct common misspellings (e.g., 'glove' to 'clove'). Remove non-essential descriptors like size (large, small), quantity, and simple preparation states (chopped, melted, softened), unless it creates a different product (e.g., 'buttermilk' vs 'butter'). Treat hyphenated and non-hyphenated versions of a term as identical (e.g., 'extra-virgin' and 'extra virgin' should normalize to the same core ingredient). The goal is to group similar items. For example, '1 large egg' and '2 eggs, beaten' should both have the core item 'egg'. '1 cup of melted butter' should be 'butter'. '2 red bell peppers' and '1 red bell pepper' should both become 'red bell pepper'. '3 garlic cloves', '1 head of garlic', and 'garlic' should all normalize to 'garlic'. Return a JSON object containing a list of objects, where each object has the original 'raw' ingredient and the processed 'core' ingredient. The list of ingredients is: ${JSON.stringify(ingredients)}`;
             const schema = {
                 type: "OBJECT",
                 properties: {
