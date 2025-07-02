@@ -24,7 +24,7 @@
         #authContainer { display: flex; }
     </style>
 </head>
-<body class="bg-gray-100 text-gray-800">
+<body class="bg-gray-100 dark:bg-gray-900 text-gray-800 dark:text-gray-200">
 
     <!-- Authentication Container -->
     <div id="authContainer" class="min-h-screen items-center justify-center bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
@@ -64,9 +64,17 @@
     <div id="appContainer" class="container mx-auto p-4 sm:p-6 lg:p-8">
         
         <header class="mb-8 text-center">
-            <h1 class="text-4xl font-bold text-gray-900">Recipe & Ingredient Tracker</h1>
+            <div class="flex justify-end items-center gap-4 mb-4">
+                 <button id="wakeLockToggle" title="Keep Screen On" class="p-2 rounded-full hover:bg-gray-200 dark:hover:bg-gray-700 hidden">
+                    <svg id="wakeLockIcon" class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"></path></svg>
+                 </button>
+                 <button id="themeToggle" title="Toggle Night Mode" class="p-2 rounded-full hover:bg-gray-200 dark:hover:bg-gray-700">
+                    <svg id="themeIcon" class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z"></path></svg>
+                 </button>
+            </div>
+            <h1 class="text-4xl font-bold text-gray-900 dark:text-white">Recipe & Ingredient Tracker</h1>
             <div class="flex items-center justify-center gap-4 mt-2">
-                 <p class="text-sm text-gray-600">Logged in as: <span id="userEmail" class="font-mono"></span></p>
+                 <p class="text-sm text-gray-600 dark:text-gray-400">Logged in as: <span id="userEmail" class="font-mono"></span></p>
                  <button id="refreshRecipesBtn" class="text-sm text-green-600 hover:text-green-500 underline">Refresh All Recipes</button>
                  <button id="logoutBtn" class="text-sm text-indigo-600 hover:text-indigo-500 underline">Logout</button>
             </div>
@@ -76,7 +84,7 @@
             <!-- Controls: Search, Add, Scan, and Shopping Helper -->
             <div class="flex flex-col sm:flex-row justify-between items-center mb-6 gap-4">
                 <div class="relative w-full sm:w-auto flex-grow">
-                    <input type="text" id="searchInput" placeholder="Search by ingredient..." class="w-full p-3 pl-10 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    <input type="text" id="searchInput" placeholder="Search by ingredient..." class="w-full p-3 pl-10 border border-gray-300 dark:border-gray-600 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-800">
                     <svg class="w-5 h-5 text-gray-400 absolute top-1/2 left-3 -translate-y-1/2" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
                         <path stroke-linecap="round" stroke-linejoin="round" d="m21 21-5.197-5.197m0 0A7.5 7.5 0 1 0 5.196 5.196a7.5 7.5 0 0 0 10.607 10.607Z" />
                     </svg>
@@ -100,15 +108,15 @@
 
             <!-- Main Content: Recipe List and Details -->
             <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
-                <div id="recipeListContainer" class="lg:col-span-1 bg-white p-6 rounded-xl shadow-lg">
+                <div id="recipeListContainer" class="lg:col-span-1 bg-white dark:bg-gray-800 p-6 rounded-xl shadow-lg">
                     <h2 class="text-2xl font-bold mb-4">My Recipes</h2>
                     <div id="recipeList" class="space-y-3">
-                         <p class="text-gray-500">Please log in to see your recipes.</p>
+                         <p class="text-gray-500 dark:text-gray-400">Please log in to see your recipes.</p>
                     </div>
                 </div>
-                <div id="recipeDetailsContainer" class="lg:col-span-2 bg-white p-6 rounded-xl shadow-lg">
-                    <div id="recipeDetails" class="prose max-w-none">
-                         <h2 class="text-2xl font-bold text-gray-500">Select a recipe to view details</h2>
+                <div id="recipeDetailsContainer" class="lg:col-span-2 bg-white dark:bg-gray-800 p-6 rounded-xl shadow-lg">
+                    <div id="recipeDetails" class="prose dark:prose-invert max-w-none">
+                         <h2 class="text-2xl font-bold text-gray-500 dark:text-gray-400">Select a recipe to view details</h2>
                          <p class="text-gray-400">Your selected recipe's ingredients and instructions will appear here.</p>
                     </div>
                 </div>
@@ -118,25 +126,25 @@
 
     <!-- Add/Edit Recipe Modal -->
     <div id="recipeModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 hidden">
-        <div class="modal-content bg-white rounded-lg shadow-2xl w-full max-w-lg p-8 transform scale-95 relative">
-            <div id="modalLoadingOverlay" class="absolute inset-0 bg-white bg-opacity-80 flex-col items-center justify-center rounded-lg hidden z-10">
+        <div class="modal-content bg-white dark:bg-gray-800 rounded-lg shadow-2xl w-full max-w-lg p-8 transform scale-95 relative">
+            <div id="modalLoadingOverlay" class="absolute inset-0 bg-white dark:bg-gray-800 bg-opacity-80 flex-col items-center justify-center rounded-lg hidden z-10">
                 <svg class="animate-spin h-10 w-10 text-blue-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
-                <p id="loadingStatus" class="mt-4 text-lg font-semibold text-gray-700">Scanning Recipe...</p>
+                <p id="loadingStatus" class="mt-4 text-lg font-semibold text-gray-700 dark:text-gray-300">Scanning Recipe...</p>
             </div>
             <h2 id="modalTitle" class="text-2xl font-bold mb-6">Add a New Recipe</h2>
             <form id="recipeForm">
                 <input type="hidden" id="recipeId">
                 <div class="mb-4">
-                    <label for="recipeName" class="block text-gray-700 font-semibold mb-2">Recipe Name</label>
-                    <input type="text" id="recipeName" class="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" required>
+                    <label for="recipeName" class="block text-gray-700 dark:text-gray-300 font-semibold mb-2">Recipe Name</label>
+                    <input type="text" id="recipeName" class="w-full p-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700" required>
                 </div>
                 <div class="mb-4">
-                    <label for="recipeIngredients" class="block text-gray-700 font-semibold mb-2">Ingredients (one per line)</label>
-                    <textarea id="recipeIngredients" rows="5" class="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" required></textarea>
+                    <label for="recipeIngredients" class="block text-gray-700 dark:text-gray-300 font-semibold mb-2">Ingredients (one per line)</label>
+                    <textarea id="recipeIngredients" rows="5" class="w-full p-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700" required></textarea>
                 </div>
                 <div class="mb-6">
-                    <label for="recipeInstructions" class="block text-gray-700 font-semibold mb-2">Instructions</label>
-                    <textarea id="recipeInstructions" rows="6" class="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" required></textarea>
+                    <label for="recipeInstructions" class="block text-gray-700 dark:text-gray-300 font-semibold mb-2">Instructions</label>
+                    <textarea id="recipeInstructions" rows="6" class="w-full p-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700" required></textarea>
                 </div>
                 <div class="flex justify-end gap-4">
                     <button type="button" id="cancelBtn" class="bg-gray-300 text-gray-800 font-semibold py-2 px-4 rounded-lg hover:bg-gray-400 transition">Cancel</button>
@@ -148,7 +156,7 @@
     
     <!-- Shopping Helper Modal -->
     <div id="shoppingHelperModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 hidden">
-        <div class="modal-content bg-white rounded-lg shadow-2xl w-full max-w-2xl p-8 transform scale-95">
+        <div class="modal-content bg-white dark:bg-gray-800 rounded-lg shadow-2xl w-full max-w-2xl p-8 transform scale-95">
             <div class="flex justify-between items-start">
                 <h2 class="text-2xl font-bold mb-6">Shopping Helper</h2>
                 <button id="closeShoppingHelperBtn" class="p-1 text-2xl leading-none">&times;</button>
@@ -161,9 +169,9 @@
 
     <!-- Confirmation Modal -->
     <div id="confirmModal" class="modal fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 hidden">
-        <div class="modal-content bg-white rounded-lg shadow-2xl w-full max-w-sm p-6 transform scale-95">
+        <div class="modal-content bg-white dark:bg-gray-800 rounded-lg shadow-2xl w-full max-w-sm p-6 transform scale-95">
             <h2 class="text-xl font-bold mb-4">Confirm Deletion</h2>
-            <p id="confirmMessage" class="text-gray-600 mb-6">Are you sure you want to delete this recipe?</p>
+            <p id="confirmMessage" class="text-gray-600 dark:text-gray-300 mb-6">Are you sure you want to delete this recipe?</p>
             <div class="flex justify-end gap-4">
                 <button type="button" id="confirmCancelBtn" class="bg-gray-300 text-gray-800 font-semibold py-2 px-4 rounded-lg hover:bg-gray-400 transition">Cancel</button>
                 <button type="button" id="confirmOkBtn" class="bg-red-600 text-white font-semibold py-2 px-4 rounded-lg hover:bg-red-700 transition">Delete</button>
@@ -173,10 +181,10 @@
 
     <!-- Progress Overlay -->
     <div id="progressOverlay" class="fixed inset-0 bg-black bg-opacity-60 flex-col items-center justify-center p-4 hidden z-50">
-        <div class="bg-white rounded-lg shadow-2xl w-full max-w-md p-8 text-center">
+        <div class="bg-white dark:bg-gray-800 rounded-lg shadow-2xl w-full max-w-md p-8 text-center">
             <h2 id="progressTitle" class="text-xl font-bold mb-4">Processing Recipes...</h2>
-            <p id="progressStatus" class="text-gray-600 mb-4">Please wait.</p>
-            <div class="w-full bg-gray-200 rounded-full h-4">
+            <p id="progressStatus" class="text-gray-600 dark:text-gray-300 mb-4">Please wait.</p>
+            <div class="w-full bg-gray-200 rounded-full h-4 dark:bg-gray-700">
                 <div id="progressBar" class="bg-blue-600 h-4 rounded-full transition-all duration-500" style="width: 0%"></div>
             </div>
         </div>
@@ -223,6 +231,7 @@
         let confirmCallback = null;
         let isLoginMode = true;
         let appInitialized = false;
+        let wakeLock = null;
 
         // --- AUTHENTICATION ---
         onAuthStateChanged(auth, (user) => {
@@ -478,14 +487,14 @@
             const recipeListEl = document.getElementById('recipeList');
             recipeListEl.innerHTML = '';
             if (recipes.length === 0) {
-                recipeListEl.innerHTML = '<p class="text-gray-500">No recipes found. Add one to get started!</p>';
+                recipeListEl.innerHTML = '<p class="text-gray-500 dark:text-gray-400">No recipes found. Add one to get started!</p>';
                 return;
             }
             recipes.forEach(recipe => {
                 const item = document.createElement('div');
-                item.className = 'p-4 border rounded-lg cursor-pointer hover:bg-gray-100 transition group';
+                item.className = 'p-4 border dark:border-gray-700 rounded-lg cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700 transition group';
                 item.dataset.id = recipe.id;
-                item.innerHTML = `<div class="flex justify-between items-center"><h3 class="font-semibold text-lg text-gray-800 group-hover:text-blue-600">${escapeHTML(recipe.name)}</h3><div class="flex items-center space-x-2 opacity-0 group-hover:opacity-100 transition-opacity"><button class="edit-btn p-1 text-gray-500 hover:text-blue-600" data-id="${recipe.id}"><svg class="w-5 h-5 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.5L14.732 3.732z"></path></svg></button><button class="delete-btn p-1 text-gray-500 hover:text-red-600" data-id="${recipe.id}"><svg class="w-5 h-5 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg></button></div></div>`;
+                item.innerHTML = `<div class="flex justify-between items-center"><h3 class="font-semibold text-lg text-gray-800 dark:text-gray-200 group-hover:text-blue-600 dark:group-hover:text-blue-400">${escapeHTML(recipe.name)}</h3><div class="flex items-center space-x-2 opacity-0 group-hover:opacity-100 transition-opacity"><button class="edit-btn p-1 text-gray-500 hover:text-blue-600" data-id="${recipe.id}"><svg class="w-5 h-5 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.5L14.732 3.732z"></path></svg></button><button class="delete-btn p-1 text-gray-500 hover:text-red-600" data-id="${recipe.id}"><svg class="w-5 h-5 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg></button></div></div>`;
                 recipeListEl.appendChild(item);
             });
         }
@@ -493,12 +502,12 @@
         function renderRecipeDetails(recipe) {
             const recipeDetailsEl = document.getElementById('recipeDetails');
             if (!recipe) {
-                recipeDetailsEl.innerHTML = `<h2 class="text-2xl font-bold text-gray-500">Select a recipe</h2><p class="text-gray-400">Recipe details will appear here.</p>`;
+                recipeDetailsEl.innerHTML = `<h2 class="text-2xl font-bold text-gray-500 dark:text-gray-400">Select a recipe</h2><p class="text-gray-400">Recipe details will appear here.</p>`;
                 return;
             }
             const ingredientsList = recipe.ingredients?.map(ing => `<li>${escapeHTML(ing)}</li>`).join('') || '<li>No ingredients listed.</li>';
             const instructionsHTML = recipe.instructions ? `<p>${escapeHTML(recipe.instructions).replace(/\n/g, '<br>')}</p>` : '<p>No instructions provided.</p>';
-            recipeDetailsEl.innerHTML = `<h2 class="text-3xl font-bold mb-4">${escapeHTML(recipe.name)}</h2><h3 class="text-xl font-semibold mt-6 mb-2">Ingredients</h3><ul class="list-disc list-inside space-y-1">${ingredientsList}</ul><h3 class="text-xl font-semibold mt-6 mb-2">Instructions</h3><div class="prose-p:my-2">${instructionsHTML}</div>`;
+            recipeDetailsEl.innerHTML = `<h2 class="text-3xl font-bold mb-4">${escapeHTML(recipe.name)}</h2><h3 class="text-xl font-semibold mt-6 mb-2">Ingredients</h3><ul class="list-disc list-inside space-y-1">${ingredientsList}</ul><h3 class="text-xl font-semibold mt-6 mb-2">Instructions</h3><div class="prose dark:prose-invert prose-p:my-2">${instructionsHTML}</div>`;
         }
         
         function handleSearch() {
@@ -604,17 +613,17 @@
             const shoppingListContainer = document.getElementById('shoppingListContainer');
             shoppingListContainer.innerHTML = '';
             if(sortedIngredients.length === 0){
-                shoppingListContainer.innerHTML = '<p class="text-gray-500">No recipes found or ingredients are not yet normalized. Please add or scan recipes first.</p>';
+                shoppingListContainer.innerHTML = '<p class="text-gray-500 dark:text-gray-400">No recipes found or ingredients are not yet normalized. Please add or scan recipes first.</p>';
                 return;
             }
 
             sortedIngredients.forEach(([core, data]) => {
                 const itemEl = document.createElement('div');
-                itemEl.className = 'p-4 border rounded-lg bg-gray-50';
+                itemEl.className = 'p-4 border dark:border-gray-700 rounded-lg bg-gray-50 dark:bg-gray-700';
                 itemEl.innerHTML = `
                     <h3 class="font-bold text-lg capitalize">${escapeHTML(core)}</h3>
-                    <p class="text-sm text-gray-600">Used in <span class="font-semibold text-purple-700">${data.count}</span> recipe(s):</p>
-                    <ul class="text-xs text-gray-500 list-disc list-inside mt-1">
+                    <p class="text-sm text-gray-600 dark:text-gray-400">Used in <span class="font-semibold text-purple-700 dark:text-purple-400">${data.count}</span> recipe(s):</p>
+                    <ul class="text-xs text-gray-500 dark:text-gray-400 list-disc list-inside mt-1">
                         ${[...data.recipes].map(name => `<li>${escapeHTML(name)}</li>`).join('')}
                     </ul>
                 `;
@@ -639,10 +648,42 @@
             return p.innerHTML;
         }
 
+        // --- THEME & WAKE LOCK ---
+        function applyTheme(theme) {
+            if (theme === 'dark') {
+                document.documentElement.classList.add('dark');
+            } else {
+                document.documentElement.classList.remove('dark');
+            }
+        }
+
+        async function toggleWakeLock() {
+            if (wakeLock) {
+                await wakeLock.release();
+                wakeLock = null;
+                document.getElementById('wakeLockIcon').classList.remove('text-yellow-400');
+                localStorage.setItem('wakeLockActive', 'false');
+                showToast("Screen will now turn off automatically.", "success");
+            } else {
+                try {
+                    wakeLock = await navigator.wakeLock.request('screen');
+                    document.getElementById('wakeLockIcon').classList.add('text-yellow-400');
+                    localStorage.setItem('wakeLockActive', 'true');
+                    showToast("Screen will stay on.", "success");
+                    wakeLock.addEventListener('release', () => {
+                        wakeLock = null;
+                         document.getElementById('wakeLockIcon').classList.remove('text-yellow-400');
+                         localStorage.setItem('wakeLockActive', 'false');
+                    });
+                } catch (err) {
+                    console.error(`${err.name}, ${err.message}`);
+                    showToast("Could not activate Keep Screen On.", "error");
+                }
+            }
+        }
+
         // --- EVENT LISTENERS ---
         function initializeAppEventListeners() {
-            // This function is called only AFTER a user is logged in.
-            // It's safe to add listeners to the main app elements here.
             document.getElementById('logoutBtn').addEventListener('click', () => signOut(auth));
             document.getElementById('refreshRecipesBtn').addEventListener('click', reNormalizeAllRecipes);
             document.getElementById('addRecipeBtn').addEventListener('click', () => openRecipeModal());
@@ -708,12 +749,35 @@
                 } else if (e.target.closest('.delete-btn')) {
                     deleteRecipe(recipeId);
                 } else {
-                    document.querySelectorAll('#recipeList [data-id]').forEach(el => el.classList.remove('bg-blue-100'));
-                    recipeItem.classList.add('bg-blue-100');
+                    document.querySelectorAll('#recipeList [data-id]').forEach(el => el.classList.remove('bg-blue-100', 'dark:bg-blue-900'));
+                    item.classList.add('bg-blue-100', 'dark:bg-blue-900');
                     renderRecipeDetails(recipe);
                 }
             });
+            
+            // Theme and Wake Lock Listeners
+            document.getElementById('themeToggle').addEventListener('click', () => {
+                const isDark = document.documentElement.classList.toggle('dark');
+                localStorage.setItem('theme', isDark ? 'dark' : 'light');
+            });
+
+            if ('wakeLock' in navigator) {
+                document.getElementById('wakeLockToggle').style.display = 'block';
+                document.getElementById('wakeLockToggle').addEventListener('click', toggleWakeLock);
+                 if (localStorage.getItem('wakeLockActive') === 'true') {
+                    toggleWakeLock();
+                }
+            }
         }
+        
+        // Apply saved theme on initial load
+        const savedTheme = localStorage.getItem('theme');
+        if (savedTheme) {
+            applyTheme(savedTheme);
+        } else if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
+            applyTheme('dark');
+        }
+
     </script>
 </body>
 </html>
