@@ -19,15 +19,14 @@
             90% { transform: translateY(0); opacity: 1; }
             100% { transform: translateY(100%); opacity: 0; }
         }
-        /* Initially hide the main app and show the auth screen */
         #appContainer { display: none; }
-        #authContainer { display: block; }
+        #authContainer { display: flex; }
     </style>
 </head>
 <body class="bg-gray-100 text-gray-800">
 
     <!-- Authentication Container -->
-    <div id="authContainer" class="min-h-screen flex items-center justify-center bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
+    <div id="authContainer" class="min-h-screen items-center justify-center bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
         <div class="max-w-md w-full space-y-8">
             <div>
                 <h2 id="authTitle" class="mt-6 text-center text-3xl font-extrabold text-gray-900">
@@ -35,7 +34,6 @@
                 </h2>
             </div>
             <form id="authForm" class="mt-8 space-y-6">
-                <input type="hidden" name="remember" value="true">
                 <div class="rounded-md shadow-sm -space-y-px">
                     <div>
                         <label for="email-address" class="sr-only">Email address</label>
@@ -46,7 +44,6 @@
                         <input id="password" name="password" type="password" autocomplete="current-password" required class="appearance-none rounded-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-b-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 focus:z-10 sm:text-sm" placeholder="Password">
                     </div>
                 </div>
-
                 <div>
                     <button id="authSubmitBtn" type="submit" class="group relative w-full flex justify-center py-2 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
                         Sign in
@@ -69,6 +66,7 @@
             <h1 class="text-4xl font-bold text-gray-900">Recipe & Ingredient Tracker</h1>
             <div class="flex items-center justify-center gap-4 mt-2">
                  <p class="text-sm text-gray-600">Logged in as: <span id="userEmail" class="font-mono"></span></p>
+                 <button id="refreshRecipesBtn" class="text-sm text-green-600 hover:text-green-500 underline">Refresh All Recipes</button>
                  <button id="logoutBtn" class="text-sm text-indigo-600 hover:text-indigo-500 underline">Logout</button>
             </div>
         </header>
@@ -180,7 +178,7 @@
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
         import { getAuth, onAuthStateChanged, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-        import { getFirestore, doc, collection, addDoc, setDoc, deleteDoc, onSnapshot, query } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        import { getFirestore, doc, collection, addDoc, setDoc, deleteDoc, onSnapshot, query, writeBatch } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
         // --- PASTE YOUR KEYS HERE ---
         const userFirebaseConfig = {
@@ -197,8 +195,7 @@
 
         const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : userFirebaseConfig;
         const geminiApiKey = typeof __gemini_api_key !== 'undefined' ? __gemini_api_key : userGeminiApiKey;
-        const appId = firebaseConfig.projectId;
-
+        
         if (!firebaseConfig.apiKey || !geminiApiKey) {
             document.body.innerHTML = `<div class="p-8 text-center text-red-500"><h1>Configuration Error</h1><p>One or more API keys are missing. Please add your configuration to the index.html file.</p></div>`;
             throw new Error("Configuration missing. Halting execution.");
@@ -213,62 +210,20 @@
         let recipesCache = [];
         let confirmCallback = null;
         let isLoginMode = true;
-
-        // --- DOM ELEMENTS ---
-        const ui = {
-            authContainer: document.getElementById('authContainer'),
-            appContainer: document.getElementById('appContainer'),
-            authForm: document.getElementById('authForm'),
-            authTitle: document.getElementById('authTitle'),
-            authSubmitBtn: document.getElementById('authSubmitBtn'),
-            authToggleBtn: document.getElementById('authToggleBtn'),
-            emailInput: document.getElementById('email-address'),
-            passwordInput: document.getElementById('password'),
-            logoutBtn: document.getElementById('logoutBtn'),
-            userEmailDisplay: document.getElementById('userEmail'),
-            recipeList: document.getElementById('recipeList'),
-            recipeDetails: document.getElementById('recipeDetails'),
-            addRecipeBtn: document.getElementById('addRecipeBtn'),
-            scanRecipeBtn: document.getElementById('scanRecipeBtn'),
-            shoppingHelperBtn: document.getElementById('shoppingHelperBtn'),
-            imageUpload: document.getElementById('imageUpload'),
-            searchInput: document.getElementById('searchInput'),
-            recipeModal: {
-                el: document.getElementById('recipeModal'),
-                content: document.querySelector('#recipeModal .modal-content'),
-                title: document.getElementById('modalTitle'),
-                form: document.getElementById('recipeForm'),
-                id: document.getElementById('recipeId'),
-                name: document.getElementById('recipeName'),
-                ingredients: document.getElementById('recipeIngredients'),
-                instructions: document.getElementById('recipeInstructions'),
-                cancelBtn: document.getElementById('cancelBtn'),
-                loadingOverlay: document.getElementById('modalLoadingOverlay'),
-                loadingStatus: document.getElementById('loadingStatus')
-            },
-            shoppingHelperModal: {
-                el: document.getElementById('shoppingHelperModal'),
-                content: document.querySelector('#shoppingHelperModal .modal-content'),
-                container: document.getElementById('shoppingListContainer'),
-                closeBtn: document.getElementById('closeShoppingHelperBtn')
-            },
-            confirmModal: {
-                el: document.getElementById('confirmModal'),
-                content: document.querySelector('#confirmModal .modal-content'),
-                message: document.getElementById('confirmMessage'),
-                okBtn: document.getElementById('confirmOkBtn'),
-                cancelBtn: document.getElementById('confirmCancelBtn')
-            }
-        };
+        let appInitialized = false;
 
         // --- AUTHENTICATION ---
         onAuthStateChanged(auth, (user) => {
             if (user) {
                 // User is signed in.
                 currentUserId = user.uid;
-                ui.userEmailDisplay.textContent = user.email;
-                ui.authContainer.style.display = 'none';
-                ui.appContainer.style.display = 'block';
+                document.getElementById('userEmail').textContent = user.email;
+                document.getElementById('authContainer').style.display = 'none';
+                document.getElementById('appContainer').style.display = 'block';
+                if (!appInitialized) {
+                    initializeAppEventListeners();
+                    appInitialized = true;
+                }
                 fetchAndRenderRecipes();
             } else {
                 // User is signed out.
@@ -277,22 +232,20 @@
                 recipesCache = [];
                 renderRecipeList([]);
                 renderRecipeDetails(null);
-                ui.authContainer.style.display = 'flex';
-                ui.appContainer.style.display = 'none';
+                document.getElementById('authContainer').style.display = 'flex';
+                document.getElementById('appContainer').style.display = 'none';
             }
         });
         
         function handleAuthFormSubmit(e) {
             e.preventDefault();
-            const email = ui.emailInput.value;
-            const password = ui.passwordInput.value;
+            const email = document.getElementById('email-address').value;
+            const password = document.getElementById('password').value;
 
             if (isLoginMode) {
-                // Handle Login
                 signInWithEmailAndPassword(auth, email, password)
                     .catch(error => showToast(`Login failed: ${error.message}`, 'error'));
             } else {
-                // Handle Sign Up
                 createUserWithEmailAndPassword(auth, email, password)
                     .catch(error => showToast(`Sign up failed: ${error.message}`, 'error'));
             }
@@ -300,14 +253,14 @@
         
         function toggleAuthMode() {
             isLoginMode = !isLoginMode;
-            ui.authTitle.textContent = isLoginMode ? 'Sign in to your account' : 'Create a new account';
-            ui.authSubmitBtn.textContent = isLoginMode ? 'Sign in' : 'Sign up';
-            ui.authToggleBtn.textContent = isLoginMode ? "Don't have an account? Sign up" : "Already have an account? Sign in";
+            document.getElementById('authTitle').textContent = isLoginMode ? 'Sign in to your account' : 'Create a new account';
+            document.getElementById('authSubmitBtn').textContent = isLoginMode ? 'Sign in' : 'Sign up';
+            document.getElementById('authToggleBtn').textContent = isLoginMode ? "Don't have an account? Sign up" : "Already have an account? Sign in";
         }
 
-        ui.authForm.addEventListener('submit', handleAuthFormSubmit);
-        ui.authToggleBtn.addEventListener('click', toggleAuthMode);
-        ui.logoutBtn.addEventListener('click', () => signOut(auth));
+        // Setup auth listeners immediately
+        document.getElementById('authForm').addEventListener('submit', handleAuthFormSubmit);
+        document.getElementById('authToggleBtn').addEventListener('click', toggleAuthMode);
 
         
         // --- RECIPE DATA LOGIC (FIRESTORE) ---
@@ -331,7 +284,7 @@
                 showToast("User not authenticated. Cannot save.", "error");
                 return;
             }
-            const ingredients = ui.recipeModal.ingredients.value.split('\n').map(i => i.trim()).filter(Boolean);
+            const ingredients = document.getElementById('recipeIngredients').value.split('\n').map(i => i.trim()).filter(Boolean);
             if(ingredients.length === 0) {
                  return showToast("Please add ingredients.", "error");
             }
@@ -349,18 +302,17 @@
             setModalLoading(false);
 
             const recipeData = {
-                name: ui.recipeModal.name.value.trim(),
+                name: document.getElementById('recipeName').value.trim(),
                 ingredients: ingredients,
                 normalizedIngredients: normalizedIngredients,
-                instructions: ui.recipeModal.instructions.value.trim(),
-                userId: currentUserId
+                instructions: document.getElementById('recipeInstructions').value.trim(),
             };
 
             if (!recipeData.name || recipeData.ingredients.length === 0 || !recipeData.instructions) {
                 return showToast("Please fill out all fields.", "error");
             }
             
-            const recipeId = ui.recipeModal.id.value;
+            const recipeId = document.getElementById('recipeId').value;
             const recipesCol = collection(db, 'users', currentUserId, 'recipes');
             try {
                 if (recipeId) {
@@ -390,6 +342,34 @@
             });
         }
         
+        async function reNormalizeAllRecipes() {
+             openConfirmModal('This will re-process all your recipes to improve ingredient grouping. This may take a moment. Continue?', async () => {
+                showToast("Starting recipe refresh... Please wait.", "success");
+                const recipesCol = collection(db, 'users', currentUserId, 'recipes');
+                const batch = writeBatch(db);
+
+                for (const recipe of recipesCache) {
+                    if (recipe.ingredients && recipe.ingredients.length > 0) {
+                        try {
+                            const result = await normalizeIngredients(recipe.ingredients);
+                            const recipeRef = doc(recipesCol, recipe.id);
+                            batch.update(recipeRef, { normalizedIngredients: result.normalizedIngredients });
+                        } catch (error) {
+                            console.error(`Could not normalize recipe: ${recipe.name}`, error);
+                        }
+                    }
+                }
+
+                try {
+                    await batch.commit();
+                    showToast("All recipes have been refreshed!", "success");
+                } catch (error) {
+                    console.error("Error committing batch update:", error);
+                    showToast("An error occurred during the refresh.", "error");
+                }
+            });
+        }
+
         // --- RECIPE SCANNING & NORMALIZATION (GEMINI API) ---
         async function callGemini(prompt, inlineData = null, responseSchema = null) {
             const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${geminiApiKey}`;
@@ -447,7 +427,7 @@
         }
 
         async function normalizeIngredients(ingredients) {
-            const prompt = `For each ingredient in the list, identify the 'core' food item and return it as a normalized string. For example, for '1 large red capsicum (pepper), seeded and quartered', the core item is 'red bell pepper'. For '2 tbsp chopped fresh basil', the core is 'fresh basil'. Return a JSON object containing a list of objects, where each object has the original 'raw' ingredient and the processed 'core' ingredient. The list of ingredients is: ${JSON.stringify(ingredients)}`;
+            const prompt = `For each ingredient in the list, identify the base food item and return it as a normalized, singular string. It is critical to convert plural forms to singular (e.g., 'eggs' to 'egg', 'cloves' to 'clove'). Correct common misspellings (e.g., 'glove' to 'clove'). Remove non-essential descriptors like size (large, small), quantity, and simple preparation states (chopped, melted, softened), unless it creates a different product (e.g., 'buttermilk' vs 'butter'). The goal is to group similar items. For example, '1 large egg' and '2 eggs, beaten' should both have the core item 'egg'. '1 cup of melted butter' should be 'butter'. '2 red bell peppers' and '1 red bell pepper' should both become 'red bell pepper'. '3 garlic cloves' should become 'garlic clove'. Return a JSON object containing a list of objects, where each object has the original 'raw' ingredient and the processed 'core' ingredient. The list of ingredients is: ${JSON.stringify(ingredients)}`;
             const schema = {
                 type: "OBJECT",
                 properties: {
@@ -470,9 +450,10 @@
 
         // --- UI RENDERING & INTERACTIONS ---
         function renderRecipeList(recipes) {
-            ui.recipeList.innerHTML = '';
+            const recipeListEl = document.getElementById('recipeList');
+            recipeListEl.innerHTML = '';
             if (recipes.length === 0) {
-                ui.recipeList.innerHTML = '<p class="text-gray-500">No recipes found. Add one to get started!</p>';
+                recipeListEl.innerHTML = '<p class="text-gray-500">No recipes found. Add one to get started!</p>';
                 return;
             }
             recipes.forEach(recipe => {
@@ -480,22 +461,23 @@
                 item.className = 'p-4 border rounded-lg cursor-pointer hover:bg-gray-100 transition group';
                 item.dataset.id = recipe.id;
                 item.innerHTML = `<div class="flex justify-between items-center"><h3 class="font-semibold text-lg text-gray-800 group-hover:text-blue-600">${escapeHTML(recipe.name)}</h3><div class="flex items-center space-x-2 opacity-0 group-hover:opacity-100 transition-opacity"><button class="edit-btn p-1 text-gray-500 hover:text-blue-600" data-id="${recipe.id}"><svg class="w-5 h-5 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.5L14.732 3.732z"></path></svg></button><button class="delete-btn p-1 text-gray-500 hover:text-red-600" data-id="${recipe.id}"><svg class="w-5 h-5 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg></button></div></div>`;
-                ui.recipeList.appendChild(item);
+                recipeListEl.appendChild(item);
             });
         }
         
         function renderRecipeDetails(recipe) {
+            const recipeDetailsEl = document.getElementById('recipeDetails');
             if (!recipe) {
-                ui.recipeDetails.innerHTML = `<h2 class="text-2xl font-bold text-gray-500">Select a recipe</h2><p class="text-gray-400">Recipe details will appear here.</p>`;
+                recipeDetailsEl.innerHTML = `<h2 class="text-2xl font-bold text-gray-500">Select a recipe</h2><p class="text-gray-400">Recipe details will appear here.</p>`;
                 return;
             }
             const ingredientsList = recipe.ingredients?.map(ing => `<li>${escapeHTML(ing)}</li>`).join('') || '<li>No ingredients listed.</li>';
             const instructionsHTML = recipe.instructions ? `<p>${escapeHTML(recipe.instructions).replace(/\n/g, '<br>')}</p>` : '<p>No instructions provided.</p>';
-            ui.recipeDetails.innerHTML = `<h2 class="text-3xl font-bold mb-4">${escapeHTML(recipe.name)}</h2><h3 class="text-xl font-semibold mt-6 mb-2">Ingredients</h3><ul class="list-disc list-inside space-y-1">${ingredientsList}</ul><h3 class="text-xl font-semibold mt-6 mb-2">Instructions</h3><div class="prose-p:my-2">${instructionsHTML}</div>`;
+            recipeDetailsEl.innerHTML = `<h2 class="text-3xl font-bold mb-4">${escapeHTML(recipe.name)}</h2><h3 class="text-xl font-semibold mt-6 mb-2">Ingredients</h3><ul class="list-disc list-inside space-y-1">${ingredientsList}</ul><h3 class="text-xl font-semibold mt-6 mb-2">Instructions</h3><div class="prose-p:my-2">${instructionsHTML}</div>`;
         }
         
         function handleSearch() {
-            const term = ui.searchInput.value.toLowerCase().trim();
+            const term = document.getElementById('searchInput').value.toLowerCase().trim();
             if (!term) {
                  renderRecipeList(recipesCache);
                  return;
@@ -509,64 +491,70 @@
 
         // --- MODAL CONTROLS ---
         function openRecipeModal(recipe = null) {
-            ui.recipeModal.form.reset();
+            const recipeModal = document.getElementById('recipeModal');
+            document.getElementById('recipeForm').reset();
             if (recipe) {
-                ui.recipeModal.title.textContent = 'Edit Recipe';
-                ui.recipeModal.id.value = recipe.id;
-                ui.recipeModal.name.value = recipe.name;
-                ui.recipeModal.ingredients.value = recipe.ingredients.join('\n');
-                ui.recipeModal.instructions.value = recipe.instructions;
+                document.getElementById('modalTitle').textContent = 'Edit Recipe';
+                document.getElementById('recipeId').value = recipe.id;
+                document.getElementById('recipeName').value = recipe.name;
+                document.getElementById('recipeIngredients').value = recipe.ingredients.join('\n');
+                document.getElementById('recipeInstructions').value = recipe.instructions;
             } else {
-                ui.recipeModal.title.textContent = 'Add New Recipe';
-                ui.recipeModal.id.value = '';
+                document.getElementById('modalTitle').textContent = 'Add New Recipe';
+                document.getElementById('recipeId').value = '';
             }
-            ui.recipeModal.el.classList.remove('hidden');
+            recipeModal.classList.remove('hidden');
             setTimeout(() => {
-                ui.recipeModal.el.classList.add('opacity-100');
-                ui.recipeModal.content.classList.replace('scale-95', 'scale-100');
+                recipeModal.classList.add('opacity-100');
+                recipeModal.querySelector('.modal-content').classList.replace('scale-95', 'scale-100');
             }, 10);
         }
 
         function closeRecipeModal() {
-            ui.recipeModal.content.classList.replace('scale-100', 'scale-95');
-            ui.recipeModal.el.classList.remove('opacity-100');
-            setTimeout(() => ui.recipeModal.el.classList.add('hidden'), 250);
+            const recipeModal = document.getElementById('recipeModal');
+            recipeModal.querySelector('.modal-content').classList.replace('scale-100', 'scale-95');
+            recipeModal.classList.remove('opacity-100');
+            setTimeout(() => recipeModal.classList.add('hidden'), 250);
         }
         
         function setModalLoading(isLoading, statusText = "Scanning Recipe...") {
-            ui.recipeModal.loadingStatus.textContent = statusText;
-            ui.recipeModal.loadingOverlay.classList.toggle('hidden', !isLoading);
-            ui.recipeModal.loadingOverlay.classList.toggle('flex', isLoading);
+            document.getElementById('loadingStatus').textContent = statusText;
+            document.getElementById('modalLoadingOverlay').classList.toggle('hidden', !isLoading);
+            document.getElementById('modalLoadingOverlay').classList.toggle('flex', isLoading);
         }
 
         function openConfirmModal(message, callback) {
-            ui.confirmModal.message.textContent = message;
+            const confirmModal = document.getElementById('confirmModal');
+            document.getElementById('confirmMessage').textContent = message;
             confirmCallback = callback;
-            ui.confirmModal.el.classList.remove('hidden');
+            confirmModal.classList.remove('hidden');
             setTimeout(() => {
-                ui.confirmModal.el.classList.add('opacity-100');
-                ui.confirmModal.content.classList.replace('scale-95', 'scale-100');
+                confirmModal.classList.add('opacity-100');
+                confirmModal.querySelector('.modal-content').classList.replace('scale-95', 'scale-100');
             }, 10);
         }
 
         function closeConfirmModal() {
-            ui.confirmModal.content.classList.replace('scale-100', 'scale-95');
-            ui.confirmModal.el.classList.remove('opacity-100');
-            setTimeout(() => ui.confirmModal.el.classList.add('hidden'), 250);
+            const confirmModal = document.getElementById('confirmModal');
+            confirmModal.querySelector('.modal-content').classList.replace('scale-100', 'scale-95');
+            confirmModal.classList.remove('opacity-100');
+            setTimeout(() => confirmModal.classList.add('hidden'), 250);
         }
 
         function openShoppingHelperModal() {
-            ui.shoppingHelperModal.el.classList.remove('hidden');
+            const shoppingHelperModal = document.getElementById('shoppingHelperModal');
+            shoppingHelperModal.classList.remove('hidden');
             setTimeout(() => {
-                ui.shoppingHelperModal.el.classList.add('opacity-100');
-                ui.shoppingHelperModal.content.classList.replace('scale-95', 'scale-100');
+                shoppingHelperModal.classList.add('opacity-100');
+                shoppingHelperModal.querySelector('.modal-content').classList.replace('scale-95', 'scale-100');
             }, 10);
         }
 
         function closeShoppingHelperModal() {
-            ui.shoppingHelperModal.content.classList.replace('scale-100', 'scale-95');
-            ui.shoppingHelperModal.el.classList.remove('opacity-100');
-            setTimeout(() => ui.shoppingHelperModal.el.classList.add('hidden'), 250);
+            const shoppingModal = document.getElementById('shoppingHelperModal');
+            shoppingModal.querySelector('.modal-content').classList.replace('scale-100', 'scale-95');
+            shoppingModal.classList.remove('opacity-100');
+            setTimeout(() => shoppingModal.classList.add('hidden'), 250);
         }
         
         // --- SHOPPING HELPER LOGIC ---
@@ -588,9 +576,10 @@
 
             const sortedIngredients = Array.from(ingredientMap.entries()).sort((a, b) => b[1].count - a[1].count);
             
-            ui.shoppingHelperModal.container.innerHTML = '';
+            const shoppingListContainer = document.getElementById('shoppingListContainer');
+            shoppingListContainer.innerHTML = '';
             if(sortedIngredients.length === 0){
-                ui.shoppingHelperModal.container.innerHTML = '<p class="text-gray-500">No recipes found or ingredients are not yet normalized. Please add or scan recipes first.</p>';
+                shoppingListContainer.innerHTML = '<p class="text-gray-500">No recipes found or ingredients are not yet normalized. Please add or scan recipes first.</p>';
                 return;
             }
 
@@ -604,7 +593,7 @@
                         ${[...data.recipes].map(name => `<li>${escapeHTML(name)}</li>`).join('')}
                     </ul>
                 `;
-                ui.shoppingHelperModal.container.appendChild(itemEl);
+                shoppingListContainer.appendChild(itemEl);
             });
         }
 
@@ -626,75 +615,80 @@
         }
 
         // --- EVENT LISTENERS ---
-        ui.addRecipeBtn.addEventListener('click', () => openRecipeModal());
-        ui.recipeModal.cancelBtn.addEventListener('click', closeRecipeModal);
-        ui.recipeModal.el.addEventListener('click', e => e.target === ui.recipeModal.el && closeRecipeModal());
-        ui.recipeModal.form.addEventListener('submit', handleFormSubmit);
-        
-        ui.confirmModal.cancelBtn.addEventListener('click', closeConfirmModal);
-        ui.confirmModal.el.addEventListener('click', e => e.target === ui.confirmModal.el && closeConfirmModal());
-        ui.confirmModal.okBtn.addEventListener('click', () => {
-            if (confirmCallback) confirmCallback();
-            closeConfirmModal();
-        });
-
-        ui.shoppingHelperBtn.addEventListener('click', () => {
-             generateShoppingList();
-             openShoppingHelperModal();
-        });
-        ui.shoppingHelperModal.closeBtn.addEventListener('click', closeShoppingHelperModal);
-        ui.shoppingHelperModal.el.addEventListener('click', e => e.target === ui.shoppingHelperModal.el && closeShoppingHelperModal());
-
-
-        ui.scanRecipeBtn.addEventListener('click', () => ui.imageUpload.click());
-        ui.imageUpload.addEventListener('change', async (e) => {
-            const file = e.target.files[0];
-            e.target.value = ''; // Reset file input
-            if (!file) return;
-
-            openRecipeModal();
-            setModalLoading(true, "Scanning recipe...");
+        function initializeAppEventListeners() {
+            // This function is called only AFTER a user is logged in.
+            // It's safe to add listeners to the main app elements here.
+            document.getElementById('logoutBtn').addEventListener('click', () => signOut(auth));
+            document.getElementById('refreshRecipesBtn').addEventListener('click', reNormalizeAllRecipes);
+            document.getElementById('addRecipeBtn').addEventListener('click', () => openRecipeModal());
+            document.getElementById('recipeModal').querySelector('#cancelBtn').addEventListener('click', closeRecipeModal);
+            document.getElementById('recipeModal').addEventListener('click', e => e.target === document.getElementById('recipeModal') && closeRecipeModal());
+            document.getElementById('recipeForm').addEventListener('submit', handleFormSubmit);
             
-            const reader = new FileReader();
-            reader.onloadend = async () => {
-                const base64ImageData = reader.result.split(',')[1];
-                try {
-                    // Step 1: Extract and clean data from image
-                    const rawRecipeData = await getRecipeFromImage(base64ImageData, file.type);
-                    ui.recipeModal.name.value = rawRecipeData.name || '';
-                    ui.recipeModal.instructions.value = rawRecipeData.instructions || '';
-                    ui.recipeModal.ingredients.value = (rawRecipeData.ingredients || []).join('\n'); // Show cleaned list in form
-                    showToast("Recipe scanned successfully! Please review.", "success");
-                } catch (error) {
-                    console.error("Failed to get recipe from image:", error);
-                    showToast("Could not read recipe from image.", "error");
-                    closeRecipeModal();
-                } finally {
-                    setModalLoading(false);
+            document.getElementById('confirmModal').querySelector('#confirmCancelBtn').addEventListener('click', closeConfirmModal);
+            document.getElementById('confirmModal').addEventListener('click', e => e.target === document.getElementById('confirmModal') && closeConfirmModal());
+            document.getElementById('confirmModal').querySelector('#confirmOkBtn').addEventListener('click', () => {
+                if (confirmCallback) confirmCallback();
+                closeConfirmModal();
+            });
+
+            document.getElementById('shoppingHelperBtn').addEventListener('click', () => {
+                 generateShoppingList();
+                 openShoppingHelperModal();
+            });
+            document.getElementById('shoppingHelperModal').querySelector('#closeShoppingHelperBtn').addEventListener('click', closeShoppingHelperModal);
+            document.getElementById('shoppingHelperModal').addEventListener('click', e => e.target === document.getElementById('shoppingHelperModal') && closeShoppingHelperModal());
+
+
+            document.getElementById('scanRecipeBtn').addEventListener('click', () => document.getElementById('imageUpload').click());
+            document.getElementById('imageUpload').addEventListener('change', async (e) => {
+                const file = e.target.files[0];
+                e.target.value = ''; // Reset file input
+                if (!file) return;
+
+                openRecipeModal();
+                setModalLoading(true, "Scanning recipe...");
+                
+                const reader = new FileReader();
+                reader.onloadend = async () => {
+                    const base64ImageData = reader.result.split(',')[1];
+                    try {
+                        const rawRecipeData = await getRecipeFromImage(base64ImageData, file.type);
+                        document.getElementById('recipeName').value = rawRecipeData.name || '';
+                        document.getElementById('recipeInstructions').value = rawRecipeData.instructions || '';
+                        document.getElementById('recipeIngredients').value = (rawRecipeData.ingredients || []).join('\n');
+                        showToast("Recipe scanned successfully! Please review.", "success");
+                    } catch (error) {
+                        console.error("Failed to get recipe from image:", error);
+                        showToast("Could not read recipe from image.", "error");
+                        closeRecipeModal();
+                    } finally {
+                        setModalLoading(false);
+                    }
+                };
+                reader.readAsDataURL(file);
+            });
+
+            document.getElementById('searchInput').addEventListener('input', handleSearch);
+
+            document.getElementById('recipeList').addEventListener('click', (e) => {
+                const recipeItem = e.target.closest('[data-id]');
+                if (!recipeItem) return;
+                const recipeId = recipeItem.dataset.id;
+                const recipe = recipesCache.find(r => r.id === recipeId);
+                if (!recipe) return;
+
+                if (e.target.closest('.edit-btn')) {
+                    openRecipeModal(recipe);
+                } else if (e.target.closest('.delete-btn')) {
+                    deleteRecipe(recipeId);
+                } else {
+                    document.querySelectorAll('#recipeList [data-id]').forEach(el => el.classList.remove('bg-blue-100'));
+                    recipeItem.classList.add('bg-blue-100');
+                    renderRecipeDetails(recipe);
                 }
-            };
-            reader.readAsDataURL(file);
-        });
-
-        ui.searchInput.addEventListener('input', handleSearch);
-
-        ui.recipeList.addEventListener('click', (e) => {
-            const recipeItem = e.target.closest('[data-id]');
-            if (!recipeItem) return;
-            const recipeId = recipeItem.dataset.id;
-            const recipe = recipesCache.find(r => r.id === recipeId);
-            if (!recipe) return;
-
-            if (e.target.closest('.edit-btn')) {
-                openRecipeModal(recipe);
-            } else if (e.target.closest('.delete-btn')) {
-                deleteRecipe(recipeId);
-            } else {
-                document.querySelectorAll('#recipeList [data-id]').forEach(el => el.classList.remove('bg-blue-100'));
-                recipeItem.classList.add('bg-blue-100');
-                renderRecipeDetails(recipe);
-            }
-        });
+            });
+        }
     </script>
 </body>
 </html>
