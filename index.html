@@ -352,7 +352,6 @@
                 ingredients: ingredients,
                 normalizedIngredients: normalizedIngredients,
                 instructions: ui.recipeModal.instructions.value.trim(),
-                userId: currentUserId
             };
 
             if (!recipeData.name || recipeData.ingredients.length === 0 || !recipeData.instructions) {
@@ -446,7 +445,7 @@
         }
 
         async function normalizeIngredients(ingredients) {
-            const prompt = `For each ingredient in the list, identify the base food item and return it as a normalized string. Remove non-essential descriptors like size (large, small), quantity, and simple preparation states (chopped, melted, softened), unless it creates a different product (e.g., 'buttermilk' vs 'butter'). The goal is to group similar items. For example, '1 large egg' and '2 eggs, beaten' should both have the core item 'egg'. '1 cup of melted butter' should be 'butter'. '2 red bell peppers' should be 'red bell pepper'. Return a JSON object containing a list of objects, where each object has the original 'raw' ingredient and the processed 'core' ingredient. The list of ingredients is: ${JSON.stringify(ingredients)}`;
+            const prompt = `For each ingredient in the list, identify the base food item and return it as a normalized, singular string. Remove non-essential descriptors like size (large, small), quantity, and simple preparation states (chopped, melted, softened), unless it creates a different product (e.g., 'buttermilk' vs 'butter'). The goal is to group similar items. For example, '1 large egg' and '2 eggs, beaten' should both have the core item 'egg'. '1 cup of melted butter' should be 'butter'. '2 red bell peppers' and '1 red bell pepper' should both become 'red bell pepper'. '3 garlic cloves' should become 'garlic clove'. Return a JSON object containing a list of objects, where each object has the original 'raw' ingredient and the processed 'core' ingredient. The list of ingredients is: ${JSON.stringify(ingredients)}`;
             const schema = {
                 type: "OBJECT",
                 properties: {
