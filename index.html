@@ -460,8 +460,19 @@
             return await callGemini(prompt, { mimeType: mimeType, data: base64ImageData }, schema);
         }
 
+        function manualCleanup(coreIngredient) {
+            let cleaned = coreIngredient.toLowerCase();
+            // Handle garlic variations
+            if (cleaned.includes('garlic')) {
+                return 'garlic';
+            }
+            // Handle hyphenation
+            cleaned = cleaned.replace(/-/g, ' ');
+            return cleaned;
+        }
+
         async function normalizeIngredients(ingredients) {
-            const prompt = `For each ingredient in the list, identify the base food item and return it as a normalized, singular string. It is critical to convert plural forms to singular (e.g., 'eggs' to 'egg', 'cloves' to 'clove'). Correct common misspellings (e.g., 'glove' to 'clove'). Remove non-essential descriptors like size (large, small), quantity, and simple preparation states (chopped, melted, softened), unless it creates a different product (e.g., 'buttermilk' vs 'butter'). Treat hyphenated and non-hyphenated versions of a term as identical (e.g., 'extra-virgin' and 'extra virgin' should normalize to the same core ingredient). The goal is to group similar items. For example, '1 large egg' and '2 eggs, beaten' should both have the core item 'egg'. '1 cup of melted butter' should be 'butter'. '2 red bell peppers' and '1 red bell pepper' should both become 'red bell pepper'. '3 garlic cloves', '1 head of garlic', and 'garlic' should all normalize to 'garlic'. Return a JSON object containing a list of objects, where each object has the original 'raw' ingredient and the processed 'core' ingredient. The list of ingredients is: ${JSON.stringify(ingredients)}`;
+            const prompt = `For each ingredient in the list, identify the base food item and return it as a normalized, singular string. Remove non-essential descriptors like size (large, small), quantity, and simple preparation states (chopped, melted, softened), unless it creates a different product (e.g., 'buttermilk' vs 'butter'). The goal is to group similar items. For example, '1 large egg' and '2 eggs, beaten' should both have the core item 'egg'. '1 cup of melted butter' should be 'butter'. '2 red bell peppers' and '1 red bell pepper' should both become 'red bell pepper'. Return a JSON object containing a list of objects, where each object has the original 'raw' ingredient and the processed 'core' ingredient. The list of ingredients is: ${JSON.stringify(ingredients)}`;
             const schema = {
                 type: "OBJECT",
                 properties: {
@@ -479,7 +490,17 @@
                 },
                 required: ["normalizedIngredients"]
             };
-            return await callGemini(prompt, null, schema);
+            
+            const aiResult = await callGemini(prompt, null, schema);
+            
+            // Apply manual cleanup on top of AI results
+            if (aiResult.normalizedIngredients) {
+                aiResult.normalizedIngredients.forEach(ing => {
+                    ing.core = manualCleanup(ing.core);
+                });
+            }
+            
+            return aiResult;
         }
 
         // --- UI RENDERING & INTERACTIONS ---
@@ -684,6 +705,8 @@
 
         // --- EVENT LISTENERS ---
         function initializeAppEventListeners() {
+            // This function is called only AFTER a user is logged in.
+            // It's safe to add listeners to the main app elements here.
             document.getElementById('logoutBtn').addEventListener('click', () => signOut(auth));
             document.getElementById('refreshRecipesBtn').addEventListener('click', reNormalizeAllRecipes);
             document.getElementById('addRecipeBtn').addEventListener('click', () => openRecipeModal());
@@ -750,7 +773,7 @@
                     deleteRecipe(recipeId);
                 } else {
                     document.querySelectorAll('#recipeList [data-id]').forEach(el => el.classList.remove('bg-blue-100', 'dark:bg-blue-900'));
-                    item.classList.add('bg-blue-100', 'dark:bg-blue-900');
+                    recipeItem.classList.add('bg-blue-100', 'dark:bg-blue-900');
                     renderRecipeDetails(recipe);
                 }
             });
