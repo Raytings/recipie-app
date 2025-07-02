@@ -177,7 +177,7 @@
         <p id="toastMessage"></p>
     </div>
 
-    <script type="module">
+        <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
         import { getAuth, onAuthStateChanged, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
         import { getFirestore, doc, collection, addDoc, setDoc, deleteDoc, onSnapshot, query } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
@@ -197,8 +197,7 @@
 
         const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : userFirebaseConfig;
         const geminiApiKey = typeof __gemini_api_key !== 'undefined' ? __gemini_api_key : userGeminiApiKey;
-        const appId = firebaseConfig.projectId;
-
+        
         if (!firebaseConfig.apiKey || !geminiApiKey) {
             document.body.innerHTML = `<div class="p-8 text-center text-red-500"><h1>Configuration Error</h1><p>One or more API keys are missing. Please add your configuration to the index.html file.</p></div>`;
             throw new Error("Configuration missing. Halting execution.");
@@ -447,7 +446,7 @@
         }
 
         async function normalizeIngredients(ingredients) {
-            const prompt = `For each ingredient in the list, identify the 'core' food item and return it as a normalized string. For example, for '1 large red capsicum (pepper), seeded and quartered', the core item is 'red bell pepper'. For '2 tbsp chopped fresh basil', the core is 'fresh basil'. Return a JSON object containing a list of objects, where each object has the original 'raw' ingredient and the processed 'core' ingredient. The list of ingredients is: ${JSON.stringify(ingredients)}`;
+            const prompt = `For each ingredient in the list, identify the base food item and return it as a normalized string. Remove non-essential descriptors like size (large, small), quantity, and simple preparation states (chopped, melted, softened), unless it creates a different product (e.g., 'buttermilk' vs 'butter'). The goal is to group similar items. For example, '1 large egg' and '2 eggs, beaten' should both have the core item 'egg'. '1 cup of melted butter' should be 'butter'. '2 red bell peppers' should be 'red bell pepper'. Return a JSON object containing a list of objects, where each object has the original 'raw' ingredient and the processed 'core' ingredient. The list of ingredients is: ${JSON.stringify(ingredients)}`;
             const schema = {
                 type: "OBJECT",
                 properties: {
