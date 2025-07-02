@@ -211,17 +211,7 @@
         let recipesCache = [];
         let confirmCallback = null;
         let isLoginMode = true;
-
-        // --- DOM ELEMENTS ---
-        const authUi = {
-            container: document.getElementById('authContainer'),
-            form: document.getElementById('authForm'),
-            title: document.getElementById('authTitle'),
-            submitBtn: document.getElementById('authSubmitBtn'),
-            toggleBtn: document.getElementById('authToggleBtn'),
-            emailInput: document.getElementById('email-address'),
-            passwordInput: document.getElementById('password'),
-        };
+        let appInitialized = false;
 
         // --- AUTHENTICATION ---
         onAuthStateChanged(auth, (user) => {
@@ -229,9 +219,12 @@
                 // User is signed in.
                 currentUserId = user.uid;
                 document.getElementById('userEmail').textContent = user.email;
-                authUi.container.style.display = 'none';
+                document.getElementById('authContainer').style.display = 'none';
                 document.getElementById('appContainer').style.display = 'block';
-                initializeAppEventListeners(); // Set up main app listeners
+                if (!appInitialized) {
+                    initializeAppEventListeners();
+                    appInitialized = true;
+                }
                 fetchAndRenderRecipes();
             } else {
                 // User is signed out.
@@ -240,15 +233,15 @@
                 recipesCache = [];
                 renderRecipeList([]);
                 renderRecipeDetails(null);
-                authUi.container.style.display = 'flex';
+                document.getElementById('authContainer').style.display = 'flex';
                 document.getElementById('appContainer').style.display = 'none';
             }
         });
         
         function handleAuthFormSubmit(e) {
             e.preventDefault();
-            const email = authUi.emailInput.value;
-            const password = authUi.passwordInput.value;
+            const email = document.getElementById('email-address').value;
+            const password = document.getElementById('password').value;
 
             if (isLoginMode) {
                 signInWithEmailAndPassword(auth, email, password)
@@ -261,14 +254,14 @@
         
         function toggleAuthMode() {
             isLoginMode = !isLoginMode;
-            authUi.title.textContent = isLoginMode ? 'Sign in to your account' : 'Create a new account';
-            authUi.submitBtn.textContent = isLoginMode ? 'Sign in' : 'Sign up';
-            authUi.toggleBtn.textContent = isLoginMode ? "Don't have an account? Sign up" : "Already have an account? Sign in";
+            document.getElementById('authTitle').textContent = isLoginMode ? 'Sign in to your account' : 'Create a new account';
+            document.getElementById('authSubmitBtn').textContent = isLoginMode ? 'Sign in' : 'Sign up';
+            document.getElementById('authToggleBtn').textContent = isLoginMode ? "Don't have an account? Sign up" : "Already have an account? Sign in";
         }
 
         // Setup auth listeners immediately
-        authUi.form.addEventListener('submit', handleAuthFormSubmit);
-        authUi.toggleBtn.addEventListener('click', toggleAuthMode);
+        document.getElementById('authForm').addEventListener('submit', handleAuthFormSubmit);
+        document.getElementById('authToggleBtn').addEventListener('click', toggleAuthMode);
 
         
         // --- RECIPE DATA LOGIC (FIRESTORE) ---
