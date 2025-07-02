@@ -180,7 +180,7 @@
  <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
         import { getAuth, onAuthStateChanged, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-        import { getFirestore, doc, collection, addDoc, setDoc, deleteDoc, onSnapshot, query } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        import { getFirestore, doc, collection, addDoc, setDoc, deleteDoc, onSnapshot, query, writeBatch } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
         // --- PASTE YOUR KEYS HERE ---
         const userFirebaseConfig = {
@@ -224,6 +224,7 @@
             emailInput: document.getElementById('email-address'),
             passwordInput: document.getElementById('password'),
             logoutBtn: document.getElementById('logoutBtn'),
+            refreshRecipesBtn: document.getElementById('refreshRecipesBtn'),
             userEmailDisplay: document.getElementById('userEmail'),
             recipeList: document.getElementById('recipeList'),
             recipeDetails: document.getElementById('recipeDetails'),
@@ -388,6 +389,36 @@
             });
         }
         
+        async function reNormalizeAllRecipes() {
+             openConfirmModal('This will re-process all your recipes to improve ingredient grouping. This may take a moment. Continue?', async () => {
+                showToast("Starting recipe refresh... Please wait.", "success");
+                const recipesCol = collection(db, 'users', currentUserId, 'recipes');
+                const batch = writeBatch(db);
+
+                for (const recipe of recipesCache) {
+                    if (recipe.ingredients && recipe.ingredients.length > 0) {
+                        try {
+                            const result = await normalizeIngredients(recipe.ingredients);
+                            const recipeRef = doc(recipesCol, recipe.id);
+                            batch.update(recipeRef, { normalizedIngredients: result.normalizedIngredients });
+                        } catch (error) {
+                            console.error(`Could not normalize recipe: ${recipe.name}`, error);
+                        }
+                    }
+                }
+
+                try {
+                    await batch.commit();
+                    showToast("All recipes have been refreshed!", "success");
+                } catch (error) {
+                    console.error("Error committing batch update:", error);
+                    showToast("An error occurred during the refresh.", "error");
+                }
+            });
+        }
+
+        ui.refreshRecipesBtn.addEventListener('click', reNormalizeAllRecipes);
+
         // --- RECIPE SCANNING & NORMALIZATION (GEMINI API) ---
         async function callGemini(prompt, inlineData = null, responseSchema = null) {
             const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${geminiApiKey}`;
@@ -445,7 +476,7 @@
         }
 
         async function normalizeIngredients(ingredients) {
-            const prompt = `For each ingredient in the list, identify the base food item and return it as a normalized, singular string. Remove non-essential descriptors like size (large, small), quantity, and simple preparation states (chopped, melted, softened), unless it creates a different product (e.g., 'buttermilk' vs 'butter'). The goal is to group similar items. For example, '1 large egg' and '2 eggs, beaten' should both have the core item 'egg'. '1 cup of melted butter' should be 'butter'. '2 red bell peppers' and '1 red bell pepper' should both become 'red bell pepper'. '3 garlic cloves' should become 'garlic clove'. Return a JSON object containing a list of objects, where each object has the original 'raw' ingredient and the processed 'core' ingredient. The list of ingredients is: ${JSON.stringify(ingredients)}`;
+            const prompt = `For each ingredient in the list, identify the base food item and return it as a normalized, singular string. It is critical to convert plural forms to singular (e.g., 'eggs' to 'egg', 'cloves' to 'clove'). Correct common misspellings (e.g., 'glove' to 'clove'). Remove non-essential descriptors like size (large, small), quantity, and simple preparation states (chopped, melted, softened), unless it creates a different product (e.g., 'buttermilk' vs 'butter'). The goal is to group similar items. For example, '1 large egg' and '2 eggs, beaten' should both have the core item 'egg'. '1 cup of melted butter' should be 'butter'. '2 red bell peppers' and '1 red bell pepper' should both become 'red bell pepper'. '3 garlic cloves' should become 'garlic clove'. Return a JSON object containing a list of objects, where each object has the original 'raw' ingredient and the processed 'core' ingredient. The list of ingredients is: ${JSON.stringify(ingredients)}`;
             const schema = {
                 type: "OBJECT",
                 properties: {
