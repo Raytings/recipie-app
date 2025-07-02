@@ -177,7 +177,7 @@
         <p id="toastMessage"></p>
     </div>
 
- <script type="module">
+    <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
         import { getAuth, onAuthStateChanged, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
         import { getFirestore, doc, collection, addDoc, setDoc, deleteDoc, onSnapshot, query, writeBatch } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
@@ -269,6 +269,7 @@
                 ui.userEmailDisplay.textContent = user.email;
                 ui.authContainer.style.display = 'none';
                 ui.appContainer.style.display = 'block';
+                initializeAppEventListeners(); // Set up main app listeners
                 fetchAndRenderRecipes();
             } else {
                 // User is signed out.
@@ -288,11 +289,9 @@
             const password = ui.passwordInput.value;
 
             if (isLoginMode) {
-                // Handle Login
                 signInWithEmailAndPassword(auth, email, password)
                     .catch(error => showToast(`Login failed: ${error.message}`, 'error'));
             } else {
-                // Handle Sign Up
                 createUserWithEmailAndPassword(auth, email, password)
                     .catch(error => showToast(`Sign up failed: ${error.message}`, 'error'));
             }
@@ -305,9 +304,9 @@
             ui.authToggleBtn.textContent = isLoginMode ? "Don't have an account? Sign up" : "Already have an account? Sign in";
         }
 
+        // Setup auth listeners immediately
         ui.authForm.addEventListener('submit', handleAuthFormSubmit);
         ui.authToggleBtn.addEventListener('click', toggleAuthMode);
-        ui.logoutBtn.addEventListener('click', () => signOut(auth));
 
         
         // --- RECIPE DATA LOGIC (FIRESTORE) ---
@@ -416,8 +415,6 @@
                 }
             });
         }
-
-        ui.refreshRecipesBtn.addEventListener('click', reNormalizeAllRecipes);
 
         // --- RECIPE SCANNING & NORMALIZATION (GEMINI API) ---
         async function callGemini(prompt, inlineData = null, responseSchema = null) {
@@ -655,75 +652,79 @@
         }
 
         // --- EVENT LISTENERS ---
-        ui.addRecipeBtn.addEventListener('click', () => openRecipeModal());
-        ui.recipeModal.cancelBtn.addEventListener('click', closeRecipeModal);
-        ui.recipeModal.el.addEventListener('click', e => e.target === ui.recipeModal.el && closeRecipeModal());
-        ui.recipeModal.form.addEventListener('submit', handleFormSubmit);
-        
-        ui.confirmModal.cancelBtn.addEventListener('click', closeConfirmModal);
-        ui.confirmModal.el.addEventListener('click', e => e.target === ui.confirmModal.el && closeConfirmModal());
-        ui.confirmModal.okBtn.addEventListener('click', () => {
-            if (confirmCallback) confirmCallback();
-            closeConfirmModal();
-        });
-
-        ui.shoppingHelperBtn.addEventListener('click', () => {
-             generateShoppingList();
-             openShoppingHelperModal();
-        });
-        ui.shoppingHelperModal.closeBtn.addEventListener('click', closeShoppingHelperModal);
-        ui.shoppingHelperModal.el.addEventListener('click', e => e.target === ui.shoppingHelperModal.el && closeShoppingHelperModal());
-
-
-        ui.scanRecipeBtn.addEventListener('click', () => ui.imageUpload.click());
-        ui.imageUpload.addEventListener('change', async (e) => {
-            const file = e.target.files[0];
-            e.target.value = ''; // Reset file input
-            if (!file) return;
-
-            openRecipeModal();
-            setModalLoading(true, "Scanning recipe...");
+        function initializeAppEventListeners() {
+            ui.logoutBtn.addEventListener('click', () => signOut(auth));
+            ui.refreshRecipesBtn.addEventListener('click', reNormalizeAllRecipes);
+            ui.addRecipeBtn.addEventListener('click', () => openRecipeModal());
+            ui.recipeModal.cancelBtn.addEventListener('click', closeRecipeModal);
+            ui.recipeModal.el.addEventListener('click', e => e.target === ui.recipeModal.el && closeRecipeModal());
+            ui.recipeModal.form.addEventListener('submit', handleFormSubmit);
             
-            const reader = new FileReader();
-            reader.onloadend = async () => {
-                const base64ImageData = reader.result.split(',')[1];
-                try {
-                    // Step 1: Extract and clean data from image
-                    const rawRecipeData = await getRecipeFromImage(base64ImageData, file.type);
-                    ui.recipeModal.name.value = rawRecipeData.name || '';
-                    ui.recipeModal.instructions.value = rawRecipeData.instructions || '';
-                    ui.recipeModal.ingredients.value = (rawRecipeData.ingredients || []).join('\n'); // Show cleaned list in form
-                    showToast("Recipe scanned successfully! Please review.", "success");
-                } catch (error) {
-                    console.error("Failed to get recipe from image:", error);
-                    showToast("Could not read recipe from image.", "error");
-                    closeRecipeModal();
-                } finally {
-                    setModalLoading(false);
+            ui.confirmModal.cancelBtn.addEventListener('click', closeConfirmModal);
+            ui.confirmModal.el.addEventListener('click', e => e.target === ui.confirmModal.el && closeConfirmModal());
+            ui.confirmModal.okBtn.addEventListener('click', () => {
+                if (confirmCallback) confirmCallback();
+                closeConfirmModal();
+            });
+
+            ui.shoppingHelperBtn.addEventListener('click', () => {
+                 generateShoppingList();
+                 openShoppingHelperModal();
+            });
+            ui.shoppingHelperModal.closeBtn.addEventListener('click', closeShoppingHelperModal);
+            ui.shoppingHelperModal.el.addEventListener('click', e => e.target === ui.shoppingHelperModal.el && closeShoppingHelperModal());
+
+
+            ui.scanRecipeBtn.addEventListener('click', () => ui.imageUpload.click());
+            ui.imageUpload.addEventListener('change', async (e) => {
+                const file = e.target.files[0];
+                e.target.value = ''; // Reset file input
+                if (!file) return;
+
+                openRecipeModal();
+                setModalLoading(true, "Scanning recipe...");
+                
+                const reader = new FileReader();
+                reader.onloadend = async () => {
+                    const base64ImageData = reader.result.split(',')[1];
+                    try {
+                        // Step 1: Extract and clean data from image
+                        const rawRecipeData = await getRecipeFromImage(base64ImageData, file.type);
+                        ui.recipeModal.name.value = rawRecipeData.name || '';
+                        ui.recipeModal.instructions.value = rawRecipeData.instructions || '';
+                        ui.recipeModal.ingredients.value = (rawRecipeData.ingredients || []).join('\n'); // Show cleaned list in form
+                        showToast("Recipe scanned successfully! Please review.", "success");
+                    } catch (error) {
+                        console.error("Failed to get recipe from image:", error);
+                        showToast("Could not read recipe from image.", "error");
+                        closeRecipeModal();
+                    } finally {
+                        setModalLoading(false);
+                    }
+                };
+                reader.readAsDataURL(file);
+            });
+
+            ui.searchInput.addEventListener('input', handleSearch);
+
+            ui.recipeList.addEventListener('click', (e) => {
+                const recipeItem = e.target.closest('[data-id]');
+                if (!recipeItem) return;
+                const recipeId = recipeItem.dataset.id;
+                const recipe = recipesCache.find(r => r.id === recipeId);
+                if (!recipe) return;
+
+                if (e.target.closest('.edit-btn')) {
+                    openRecipeModal(recipe);
+                } else if (e.target.closest('.delete-btn')) {
+                    deleteRecipe(recipeId);
+                } else {
+                    document.querySelectorAll('#recipeList [data-id]').forEach(el => el.classList.remove('bg-blue-100'));
+                    recipeItem.classList.add('bg-blue-100');
+                    renderRecipeDetails(recipe);
                 }
-            };
-            reader.readAsDataURL(file);
-        });
-
-        ui.searchInput.addEventListener('input', handleSearch);
-
-        ui.recipeList.addEventListener('click', (e) => {
-            const recipeItem = e.target.closest('[data-id]');
-            if (!recipeItem) return;
-            const recipeId = recipeItem.dataset.id;
-            const recipe = recipesCache.find(r => r.id === recipeId);
-            if (!recipe) return;
-
-            if (e.target.closest('.edit-btn')) {
-                openRecipeModal(recipe);
-            } else if (e.target.closest('.delete-btn')) {
-                deleteRecipe(recipeId);
-            } else {
-                document.querySelectorAll('#recipeList [data-id]').forEach(el => el.classList.remove('bg-blue-100'));
-                recipeItem.classList.add('bg-blue-100');
-                renderRecipeDetails(recipe);
-            }
-        });
+            });
+        }
     </script>
 </body>
 </html>
