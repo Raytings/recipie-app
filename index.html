@@ -318,7 +318,7 @@
             } catch (error) {
                 console.error("Normalization failed:", error);
                 showToast("Could not normalize ingredients, saving as is.", "warning");
-                normalizedIngredients = ingredients.map(i => ({raw: i, core: i.toLowerCase().split(',')[0]})); // Basic fallback
+                normalizedIngredients = ingredients.map(i => ({raw: i, core: manualCleanup(i.toLowerCase().split(',')[0])})); // Basic fallback
             }
             setModalLoading(false);
 
@@ -459,15 +459,30 @@
             };
             return await callGemini(prompt, { mimeType: mimeType, data: base64ImageData }, schema);
         }
-
+        
         function manualCleanup(coreIngredient) {
-            let cleaned = coreIngredient.toLowerCase();
-            // Handle garlic variations
-            if (cleaned.includes('garlic')) {
-                return 'garlic';
+            let cleaned = coreIngredient.toLowerCase().replace(/-/g, ' ');
+
+            const rules = {
+                'garlic': ['garlic', 'garlic clove', 'garlic gloves'],
+                'chive': ['chives', 'fresh chive', 'whole chive'],
+                'olive oil': ['olive oil', 'extra virgin olive oil']
+            };
+            
+            // Exceptions that should NOT be simplified
+            const exceptions = ['garlic salt', 'garlic powder'];
+            if (exceptions.includes(cleaned)) {
+                return cleaned;
             }
-            // Handle hyphenation
-            cleaned = cleaned.replace(/-/g, ' ');
+
+            for (const base in rules) {
+                for (const variation of rules[base]) {
+                    if (cleaned.includes(variation)) {
+                        return base;
+                    }
+                }
+            }
+            
             return cleaned;
         }
 
@@ -620,16 +635,15 @@
                     recipe.normalizedIngredients.forEach(ing => {
                         const core = ing.core.toLowerCase();
                         if (!ingredientMap.has(core)) {
-                            ingredientMap.set(core, { count: 0, recipes: new Set() });
+                            ingredientMap.set(core, { recipes: new Set() });
                         }
                         const entry = ingredientMap.get(core);
-                        entry.count++;
                         entry.recipes.add(recipe.name);
                     });
                 }
             });
 
-            const sortedIngredients = Array.from(ingredientMap.entries()).sort((a, b) => b[1].count - a[1].count);
+            const sortedIngredients = Array.from(ingredientMap.entries()).sort((a, b) => b[1].recipes.size - a[1].recipes.size);
             
             const shoppingListContainer = document.getElementById('shoppingListContainer');
             shoppingListContainer.innerHTML = '';
@@ -643,7 +657,7 @@
                 itemEl.className = 'p-4 border dark:border-gray-700 rounded-lg bg-gray-50 dark:bg-gray-700';
                 itemEl.innerHTML = `
                     <h3 class="font-bold text-lg capitalize">${escapeHTML(core)}</h3>
-                    <p class="text-sm text-gray-600 dark:text-gray-400">Used in <span class="font-semibold text-purple-700 dark:text-purple-400">${data.count}</span> recipe(s):</p>
+                    <p class="text-sm text-gray-600 dark:text-gray-400">Used in <span class="font-semibold text-purple-700 dark:text-purple-400">${data.recipes.size}</span> recipe(s):</p>
                     <ul class="text-xs text-gray-500 dark:text-gray-400 list-disc list-inside mt-1">
                         ${[...data.recipes].map(name => `<li>${escapeHTML(name)}</li>`).join('')}
                     </ul>
